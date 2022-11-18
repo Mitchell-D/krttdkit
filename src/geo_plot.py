@@ -20,6 +20,8 @@ from matplotlib.ticker import LinearLocator, StrMethodFormatter, NullLocator
 from cartopy.mpl.gridliner import LongitudeLocator, LatitudeLocator
 
 from .ABIManager import ABIManager
+from .GridManager import GridManager
+from .plot_spec import plot_spec_default
 
 def basic_plot(x, y, image_path:Path, plot_spec:dict={}, scatter:bool=False):
     fig, ax = plt.subplots()
@@ -52,7 +54,12 @@ def generate_raw_image(RGB:np.ndarray, image_path:Path, gif:bool=False,
         imageio.imwrite(image_path.as_posix(), RGB)
         print(f"Generated image at {image_path.as_posix()}")
         return
-    RGB = (np.moveaxis(RGB, 2, 0)*256).astype(np.uint8)
+    RGB = np.moveaxis(RGB, 2, 0)
+    '''
+    if not RGB.dtype==np.uint8:
+        print("converting")
+        RGB = (np.moveaxis(RGB, 2, 0)*256).astype(np.uint8)
+    '''
     imageio.mimwrite(uri=image_path, ims=RGB, format=".gif", fps=fps)
     print(f"Generated gif at {image_path.as_posix()}")
 
@@ -182,10 +189,14 @@ def geo_scalar_plot(data:np.ndarray, lat:np.ndarray, lon:np.ndarray,
             animates along the time axis into a GIF, which is saved to
             fig_path.
     """
+    old_ps = plot_spec_default
+    old_ps.update(plot_spec)
+    plot_spec = old_ps
     fig = plt.figure(figsize=plot_spec.get("fig_size"))
     ax = plt.axes(projection=ccrs.PlateCarree())
     #fig, ax = plt.subplots(1, 1, subplot_kw={"projection":ccrs.PlateCarree()})
     cmap = 'jet' if not plot_spec.get('cb_cmap') else plot_spec.get('cb_cmap')
+
 
     if animate:
         if len(data.shape) != 3:
@@ -274,5 +285,66 @@ def geo_scalar_plot(data:np.ndarray, lat:np.ndarray, lon:np.ndarray,
         plt.savefig(fig_path.as_posix(), dpi=dpi, bbox_inches='tight')
     print(f"Generated figure at: {fig_path}")
 
-if __name__=="__main__":
-    pass
+def get_scalar_graphics(am:ABIManager, matplotlib_path:Path=None,
+                        raw_path:Path=None, target_time:dt=None,
+                        plot_spec:dict={}, grid_center:tuple=None,
+                        grid_aspect:tuple=None, gif_fps:int=10):
+    """
+    Use an ABIManager to generate raw or projected matplotlib scalar image
+    or animation graphics.
+
+    :param am: an ABIManager object with a time series loaded
+    :param matplotlib_path: File path to a matplotlib image/gif to create.
+            If None, doesn't generate a matplotlib image.
+    :param raw_path: File path to a raw image/gif to generate.  If None,
+            doesn't generate a raw image/gif.
+    :param target_time: time of an observation to select. If target_time is
+            None and the ABIManager has 3d data, a gif animation will be
+            generated. Otherwise, this method will make a static image.
+    :param plot_spec: A plot spec dictionary according to the geo_plot standard
+    :param grid_center: (lat,lon) centerpoint of a subgrid to focus on. If this
+            is None, the full ABIManager domain will be plotted
+    :param grid_aspect: (dlat,dlon) "side lengths" in degrees of a subgrid to
+            focus on. If this is None, the full domain will be plotted.
+    """
+    label = list(am.data.data_vars.keys())[0]
+    target_arr = am.data[label]
+    generate_raw = not raw_path is None
+    generate_mpl = not matplotlib_path is None
+    get_subgrid = not grid_center is None and not grid_aspect is None
+    generate_gif = target_time is None
+
+    if not generate_gif:
+        target_arr = target_arr.isel(time=am.index_at_time(target_time))
+
+    # Select a geographic subgrid of the data
+    if get_subgrid:
+        lat_range, lon_range = GridManager.get_grid_bounds(
+                grid_center, grid_aspect)
+        lat_ind_range, lon_ind_range = am.get_subgrid_indeces(
+                lat_range=lat_range, lon_range=lon_range)
+        target_arr = target_arr.isel(y=slice(*lon_ind_range),
+                                  x=slice(*lat_ind_range))
+
+    # Animate if array is 3d
+    ext = (".gif", ".png")[not generate_gif]
+
+    if generate_mpl:
+        #print("generating matplotlib image")
+        # Plot a scalar projection with matplotlib
+        geo_scalar_plot( data=target_arr.data,
+            lat=target_arr["lat"].data, lon=target_arr["lon"].data,
+            fig_path=matplotlib_path.with_suffix(ext),
+            plot_spec=plot_spec, animate=generate_gif)
+
+
+    if generate_raw:
+        #print("generating raw image")
+        # Plot a "raw" unprojected gif at full resolution
+        # Normalize pixel array to 256 integer colors
+        target_arr.data = GridManager.norm_to_uint8(
+                target_arr.data, resolution=256)
+        generate_raw_image(
+                RGB=target_arr.data,
+                image_path=raw_path.with_suffix(ext),
+                gif=generate_gif, fps=gif_fps,)

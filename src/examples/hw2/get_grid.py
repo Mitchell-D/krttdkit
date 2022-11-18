@@ -3,14 +3,22 @@ from pathlib import Path
 import datetime as dt
 from krttdkit import RecipeBook as RB
 
-
 # Define desired grid domain
-grid_center = (26.5, -81) # (lat/lon)
-grid_aspect = (2, 2) # (lat/lon)
-#grid_center = (27, -82) # (lat/lon)
-#grid_aspect = (4, 6) # (lat/lon)
+
+#grid_center = (27, -82) # look 2
+#grid_aspect = (4, 6)
+
+#grid_center = (26.5, -81) # look 3
+#grid_aspect = (2, 2)
+
+grid_center = (25, -82) # (lat/lon)
+grid_aspect = (10, 16) # (lat/lon)
+
 #grid_center = (30, -82) # (lat/lon)
 #grid_aspect = (24, 36) # (lat/lon)
+
+#grid_center = (51.5, -121) # pyroCb
+#grid_aspect = (12, 12) #
 
 # time range determines which files to ingest from the data directory
 #time_range = (dt.datetime(year=2021, month=6, day=29, hour=23, minute=0),
@@ -19,18 +27,24 @@ grid_aspect = (2, 2) # (lat/lon)
 #ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/pyroCb_data/goes17/band13")
 #pklpath = Path("data/pkls/pyroCb_tb_b13_2km-goes17.pkl")
 #ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/pyroCb_data/goes17/band02")
+
 #ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/ian_data/band02")
-#ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/ian_data/band02")
-ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/ian_data/band05")
-#pklpath = Path("data/pkls/ian_ref_b02_p5km-goes16.pkl")
+#ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/ian_data/band05")
+ncdir = Path("/mnt/warehouse/data/abi/aes572_hw2/ian_data/band13")
+
 #pklpath = Path("data/pkls/ian-look3_ref_b02_p5km-goes16.pkl")
-pklpath = Path("data/pkls/ian-look3_ref_b05_1km-goes16.pkl")
+#pklpath = Path("data/pkls/ian-look3_ref_b05_1km-goes16.pkl")
+#pklpath = Path("data/pkls/ian-look3_ref_b05_1km-goes16.pkl")
+
+#pklpath = Path("data/pkls/ian_ref_b02_p5km-goes16.pkl")
+#pklpath = Path("data/pkls/ian_ref_b05_1km-goes16.pkl")
+pklpath = Path("data/pkls/ian_tb_b13_2km-goes16.pkl")
 
 buffdir = Path("data/buffer")
-label = "ref"
+label = "tb"
 stride=1
-convert_Tb = False # Convert to brightness temp
-convert_Ref = True # Convert to reflectance
+convert_Tb = True # Convert to brightness temp
+convert_Ref = False # Convert to reflectance
 
 gm = kk.GridManager(buffer_dir=buffdir)
 gm.get_abi_grid(

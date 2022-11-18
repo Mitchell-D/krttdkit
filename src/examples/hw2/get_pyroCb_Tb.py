@@ -10,7 +10,7 @@ sounding_path=Path("/home/krttd/uah/22.f/aes572/hw2take2/data/sounding_20210629_
 
 gm = kk.GridManager()
 #sat_key = "pyroCb_tb_b13_2km-goes16"
-sat_key = "pyroCb_tb_b13_2km-goes17"
+sat_key = "pyroCb-large_tb_b13_2km-goes17"
 gm.load_pkl(pkldir.joinpath(sat_key+".pkl"))
 label=gm.labels[0]
 
@@ -38,8 +38,32 @@ plot_spec = {
     "ytick_size":8,
     }
 
+""" Plot"""
+
 infra_da = gm.subgrids["infra"]["am"].data["infra"]
 
+mins = [ np.amin(infra_da.isel(time=i)).item()
+        for i in range(len(infra_da["time"]))]
+plot_spec["title"] = "Minimum Tb over entire domain"
+plot_spec["ylabel"] = "Brightness Temp (K)"
+kk.geo_plot.basic_plot(
+        infra_da["time"].data,
+        mins,
+        image_path=figdir.joinpath(Path(sat_key+"-Tb-min-any.png")),
+        plot_spec=plot_spec
+        )
+
+am = gm.subgrids["infra"]["am"]
+idx = am.get_closest_latlon(*(51.5, -121))
+print(am.data["lat"].data[idx], am.data["lon"].data[idx])
+print("mean BC sfc T (51.5, -121):",np.average(am.data["infra"].data[idx]))
+idx = am.get_closest_latlon(*(50.7, -127.4))
+print("mean YZT sfc T (50.7, -127.4):",np.average(am.data["infra"].data[idx]))
+
+exit(0)
+
+plot_spec["title"] = "ABI Band 13 Tb (K)"
+plot_spec["ylabel"] = "Brightness Temps (K)"
 kk.geo_plot.geo_scalar_plot(
     data=infra_da.data,
     lat=infra_da["lat"],
@@ -88,6 +112,7 @@ temps = np.asarray(temps[:60])+273.15 # K
 # infrared surface has warmer values than the sounding surface, floor
 # the data at zero interpolated altitude.
 a, b = tuple(np.polyfit(x=height, y=temps, deg=1))
+print("Coeffs: ",a,b)
 height = ((infra_da.data-b)/a)
 height[height<0] = 0
 
@@ -110,7 +135,7 @@ idx_x, idx_y, idx_t = tuple(np.where(infra_da.data==min_tb))
 temps = infra_da.isel(x=idx_x, y=idx_y).data.squeeze()
 times = infra_da.coords["time"].data
 
-plot_spec["title"] = "Anvil growth at minimum Tb point"
+plot_spec["title"] = "Temperature at minimum Tb point"
 plot_spec["ylabel"] = "Brightness Temp (K)"
 kk.geo_plot.basic_plot(times, temps,
         image_path=figdir.joinpath(Path(sat_key+"-Tb-min-temps.png")),
@@ -125,6 +150,7 @@ min_str = f"({min_lat:.2f}, {min_lon:.2f}) at {min_time.strftime('%H:%M')}"
 print(f"minumum found: {min_str}")
 
 plot_spec["title"] = f"Minumum Tb: {min_str}"
+plot_spec["cb_label"] = "Brightness Temp (K)"
 kk.geo_plot.geo_scalar_plot(
     data=infra_da.isel(time=idx_t).data[:,:,0],
     lat=infra_da["lat"].data,
@@ -143,6 +169,7 @@ gm.subgrids[label]["am"].restrict_data(
 infra_da = gm.subgrids[label]["am"].data[label]
 
 # Plot a scalar projection with matplotlib
+plot_spec["title"] = f"Brightness Temperatures > {upper_bound} K"
 kk.geo_plot.geo_scalar_plot(
         data=infra_da.data,
         lat=infra_da["lat"],
@@ -186,9 +213,7 @@ for i in range(len(counts)-1):
 plot_spec["title"] = f"{upper_bound}K-Threshold Expansion Rate (m^2/s)"
 plot_spec["xlabel"] = "Time (seconds)"
 plot_spec["ylabel"] = "Anvil Expansion (m^2/s)"
-kk.geo_plot.basic_plot(
-        t,
-        a,
+kk.geo_plot.basic_plot( t, a,
         image_path=figdir.joinpath(Path(sat_key+"-expansion.png")),
         plot_spec=plot_spec
         )

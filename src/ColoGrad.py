@@ -75,8 +75,8 @@ class ColoGrad:
         """
         Add an inclusive color "stop" in the gradient.
 
-        :param value: Inclusive data-scale scalar value at which point the
-                extent of the provided RGB vector will be maximum.
+        :param value: Data-scale float value where data should be closest
+                to the provided RGB color vector
         """
         # Iteration depth, so we can sort efficiently
         if not self._depth:

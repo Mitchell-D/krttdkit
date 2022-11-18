@@ -17,7 +17,15 @@ class GridManager:
                              for k in self.labels)
 
     @staticmethod
-    def _get_grid_bounds(grid_center:tuple, grid_aspect:tuple):
+    def get_grid_bounds(grid_center:tuple, grid_aspect:tuple):
+        """
+        Converts tuples describing a lat/lon centerpoint and lat/lon ranges
+        to a minimum and maximum latitude and longitude. For example, a grid
+        defined by grid_center=(25, -110), grid_aspect=(10, 20) would return
+        lat_range=(20, 30), lon_range = (-100, -120).
+        :param grid_center: (lat, lon) centerpoint of the desired domain
+        :param grid_aspect: (dlat, dlon) "side lengths" of domain (in degrees)
+        """
         get_subgrid = (grid_center is not None) and (grid_aspect is not None)
         lat_range = (grid_center[0]-grid_aspect[0]/2,
                 grid_center[0]+grid_aspect[0]/2) if get_subgrid else None
@@ -32,7 +40,7 @@ class GridManager:
             tf:dt.datetime=None, _debug:bool=False):
 
         buffer_arrays = not self._buffer_dir is None
-        lat_range, lon_range = GridManager._get_grid_bounds(
+        lat_range, lon_range = GridManager.get_grid_bounds(
                 grid_center, grid_aspect)
 
         # Get in-range files ordered chronologically
@@ -73,7 +81,8 @@ class GridManager:
 
     @staticmethod
     def norm_to_unit(arr:np.ndarray, unit:int=1):
-        return unit*(arr-np.min(arr))/(np.max(arr)-np.min(arr))
+        return np.clip(unit*(arr-np.min(arr))/(np.max(arr)-np.min(arr)),
+                       0, unit)
     @staticmethod
     def norm_to_uint8(arr:np.ndarray, resolution:int=256):
         """
@@ -108,11 +117,15 @@ class GridManager:
     def load_pkl(self, pkl_path:Path):
         """ Load an ABIManager pkl """
         am = ABIManager().load_pkl(pkl_path)
+        print(f"loaded pkl {pkl_path.as_posix()}")
+        return self.load_ABIManager(am)
+
+    def load_ABIManager(self, am:ABIManager):
+        """ Load an existing ABIManager as a subgrid """
         if am._label in self.labels:
             print("Warning: subgrid labeled {am._label} is already one " + \
                     "of this GridManager's subgrids")
-        self._subgrids.update({am._label:{"am":am, "pkl_path":pkl_path}})
-        print(f"loaded pkl {pkl_path.as_posix()}")
+        self._subgrids.update({am._label:{"am":am}})
         return self
 
     @property

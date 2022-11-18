@@ -37,29 +37,33 @@ class ABIManager:
         self._data = None
         self._label = None
 
+    def get_closest_latlon(self, lat, lon):
+        """
+        return the pixel index closest to the provided lat/lon
+        """
+        masked_lats = np.nan_to_num(
+                self._data[self._label]["lat"].data, 999999)
+        masked_lons = np.nan_to_num(
+                self._data[self._label]["lon"].data, 999999)
+
+        # Get an array of angular distance to the desired lat/lon
+        lat_diff = masked_lats-lat
+        lon_diff = masked_lons-lon
+        total_diff = np.sqrt(lat_diff**2+lon_diff**2)
+        min_idx = tuple([ int(c[0]) for c in
+                np.where(total_diff == np.amin(total_diff)) ])
+        return min_idx
+
     def get_subgrid_indeces(self, lat_range:tuple=None, lon_range:tuple=None):
-        """ Find subgrid indeces """
-        lats = self._data[self._label]["lat"].data
-        lons = self._data[self._label]["lon"].data
-        print(lats, lons)
-        masked_lons = np.nan_to_num(lons, 999999)
-        masked_lats = np.nan_to_num(lats, 999999)
-
-        if lat_range:
-            min_lat_diff = (masked_lats-lat_range[0])**2
-            max_lat_diff = (masked_lats-lat_range[1])**2
-
-        if lon_range:
-            min_lon_diff = (masked_lons-lon_range[0])**2
-            max_lon_diff = (masked_lons-lon_range[1])**2
-
-        ul_distance = np.sqrt(max_lat_diff + min_lon_diff)
-        lr_distance = np.sqrt(min_lat_diff + max_lon_diff)
-        ul_index = tuple([ int(c[0]) for c in
-                np.where(ul_distance == np.amin(ul_distance)) ])
-        lr_index = tuple([ int(c[0]) for c in
-                np.where(lr_distance == np.amin(lr_distance)) ])
-        return tuple(zip(ul_index, lr_index))
+        """
+        Find the range of pixel indeces closest to the provided lat or lon
+        ranges.
+        """
+        ll, ur = tuple(zip(lat_range, lon_range))
+        ll_ind = self.get_closest_latlon(*ll)
+        ur_ind = self.get_closest_latlon(*ur)
+        lat_ind_range, lon_ind_range = tuple(zip(ll_ind, ur_ind))
+        return lat_ind_range[::-1], lon_ind_range
 
     @property
     def geom(self):
@@ -551,6 +555,8 @@ class ABIManager:
                 NOTE: if you want to replace with null-like values, use
                       np.nan instead of None.
         """
+        bounds = list(bounds)
+        replace_val = list(replace_val)
         if copy:
             arr_copy = copy.deepcopy(self._data)
             self._data = None
@@ -603,11 +609,7 @@ class ABIManager:
         :param data: Dataset derived from another ABIManager object.
         :param geom: GeosGeometry object describing the provided data.
         """
-        if dataset_label not in self._data.data_vars.keys():
-            raise ValueError(f"Dataset label {dataset_label} isn't " + \
-                    "in the provided data's data_vars! The provided data" + \
-                    f" has these variables: {data.data_vars.keys()}")
-        self._data = data
+        self._data = xr.Dataset({dataset_label:data})
         self._geom = geom
         self._label = dataset_label
         return self

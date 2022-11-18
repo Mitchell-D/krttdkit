@@ -3,7 +3,7 @@ plot_spec_default = {
     "title_size":8,
     "gridline_color":"gray",
     "fig_size":(16,9),
-    "dpi":1200,
+    "dpi":800,
     "borders":True,
     "border_width":0.5,
     "border_color":"black",
@@ -18,7 +18,7 @@ plot_spec_default = {
     "cb_label_format":"{x:.1f}",
     #"cb_cmap":"CMRmap",
     "cb_cmap":"jet",
-    "xtick_count":12,
+    #"xtick_count":12,
     "xtick_size":8,
-    "ytick_count":12,
+    #"ytick_count":12,
     }

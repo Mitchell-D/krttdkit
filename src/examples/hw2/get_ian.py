@@ -1,123 +1,83 @@
 import krttdkit as kk
 from pathlib import Path
 from datetime import datetime as dt
-from krttdkit import RecipeBook as RB
 import numpy as np
 
+""" Script for generating imagery in bands 2, 5, and 13 """
+
 pkldir = Path("/home/krttd/uah/22.f/aes572/hw2take2/data/pkls")
-figdir = Path("/home/krttd/uah/22.f/aes572/hw2take2/data/figures/ian")
+#figdir = Path("/home/krttd/uah/22.f/aes572/hw2take2/data/figures/ian")
+#figdir = Path("/home/krttd/uah/22.f/aes572/hw2take2/data/figures/ian/look5")
+figdir = Path("/home/krttd/uah/22.f/aes572/hw2take2/data/figures/ian/restricted")
 buffdir = Path("/home/krttd/uah/22.f/aes572/hw2take2/data/buffer")
 
 gm = kk.GridManager(buffer_dir=buffdir.as_posix())
-#sat_key = "ian_ref_b02_p5km-goes16"
-#vis_key = "ian_ref_b02_p5km-goes16"
-#sat_key = "ian-look2_ref_b05_1km-goes16"
-sat_key = "ian-look3_ref_b05_1km-goes16"
-#sat_key = "ian-look2_ref_b05_1km-goes16"
-#sat_key = "ian_tb_b05_1km-goes16"
-#sat_key = "ian_tb_b13_2km-goes16"
-#out_key = "ian-look2-t1_ref_b05_1km-goes16"
-#out_key = "ian-look2-t2_ref_b02_p5km-goes16"
-out_key = "ian-look3-t1_ref_b05_1km-goes16"
 
-label = "ref"
-#gm.load_pkl(pkldir.joinpath(sat_key+".pkl"))
-
-# Load the band 5 infrared pkl and take the channel difference
-gm.load_pkl(pkldir.joinpath(sat_key+".pkl"))
-#diff = vis - gm.subgrids["ref"]["am"].data["ref"].data[:ymax,:xmax,:]
-#del vis
-
-# If a use_target_time is True, a static image will be plotted
-# using the data closest to the provided target time
-use_target_time = True
+use_target_time = False
 target_time = dt(year=2022, month=9, day=27, hour=22) # t1
-#target_time = dt(year=2022, month=9, day=27, hour=20) # t2
+gif_fps = 10 # Only applies if use_target_time is False
+time_str = f" ({target_time})" if use_target_time else ""
 
 # Define a subgrid of the full pkl to use
-get_subgrid = False
-lat_range = (24, 26)
-lon_range = (-84,-81)
+get_subgrid = True
+grid_center = (26.5, -81) # look 3/4
+#grid_center = (23.9, -83.6) # look 5
+grid_aspect = (4,4)
+dpi=100
+upper_bound = 230
 
-gif_fps = 10
-
+#'''
+# band 13
+sat_key = "ian_tb_b13_2km-goes16"
+#out_key = "ian_tb_b13_2km-goes16"
+out_key = "ian-look4_tb_b13_2km-goes16"
 plot_spec = {
-    #"title":"ABI Band 2 Reflectance (0.5km)",
-    "title":"ABI Band 5 Reflectance (1km)",
-    "title_size":8,
-    "gridline_color":"gray",
-    "fig_size":None,
-    "borders":True,
-    "border_width":0.5,
-    "border_color":"black",
-    "cb_orient":"vertical",
-    "cb_label":"Reflectance",
-    "cb_tick_count":15,
-    "cb_levels":80,
-    "cb_size":.6,
-    "cb_pad":.05,
-    "cb_label_format":"{x:.1f}",
-    #"cb_cmap":"CMRmap",
-    "cb_cmap":"jet",
-    "xtick_count":12,
-    "xtick_size":8,
-    "ytick_count":12,
-    "ytick_size":8,
+    #"title": "GOES 16 Band 13 Brightness Temp"+time_str,
+    "title": f"GOES 16 Band 13 Tb (Lower bound {upper_bound})"+time_str,
+    "cb_label": "Tb (K)",
     }
+#'''
+'''
+# band 5
+sat_key = "ian_ref_b05_1km-goes16"
+#out_key = "ian_ref_b05_1km-goes16"
+out_key = "ian-look5_ref_b05_1km-goes16"
+plot_spec = {
+    "title":"GOES 16 Band 5 Reflectance"+time_str,
+    "cb_label":"Reflectance",
+    }
+'''
+'''
+# band 2
+sat_key = "ian_ref_b02_p5km-goes16"
+#out_key = "ian_ref_b02_p5km-goes16"
+out_key = "ian-look5_ref_b02_p5km-goes16"
+plot_spec = {
+    "title":"GOES 16 Band 2 Reflectance"+time_str,
+    "cb_label":"Reflectance" }
+'''
 
-#print(gm.subgrids)
+""" Get subgrids or select a frame with target_time """
 
-am = gm.subgrids["ref"]["am"]
-target_arr = am.data["ref"]
+gm.load_pkl(pkldir.joinpath(sat_key+".pkl"))
+plot_spec.update({"dpi":dpi})
+label = list(gm.subgrids.keys())[0]
+am = gm.subgrids[label]["am"]
+#matplotlib_path = figdir.joinpath(Path(out_key)),
+raw_path = figdir.joinpath(Path(out_key+"-raw")),
+if not upper_bound is None:
+    am.restrict_data(bounds=(None, upper_bound),
+                     replace_val=(None, upper_bound))
 
-# Select a single time
-if use_target_time:
-    target_arr = target_arr.isel(time=am.index_at_time(target_time))
-
-# Select a geographic subgrid of the data
-if get_subgrid:
-    lat_ind_range, lon_ind_range = am.get_subgrid_indeces(
-            lat_range=lat_range, lon_range=lon_range)
-    target_arr = target_arr.isel(y=slice(*lat_ind_range),
-                                 x=slice(*lon_ind_range))
-
-# Animate if array is 3d
-ext = (".gif", ".png")[use_target_time]
-
-#"""
-print("generating matplotlib image")
-# Plot a scalar projection with matplotlib
-kk.geo_plot.geo_scalar_plot(
-    #data=diff,
-    #data=gm.subgrids[label]["am"].data[label].data,
-    data=target_arr.data,
-    lat=target_arr["lat"].data,
-    lon=target_arr["lon"].data,
-    #lat=gm.subgrids[label]["am"].data["lat"].data,#[:ymax,:xmax],
-    #lon=gm.subgrids[label]["am"].data["lon"].data,#[:ymax,:xmax],
-    fig_path=figdir.joinpath(Path(out_key+ext)),
-    #fig_path=figdir.joinpath(Path(sat_key+".png")),
-    plot_spec=plot_spec,
-    animate=not use_target_time,
-    )
-#"""
-
-
-#"""
-print("generating raw image")
-# Plot a "raw" unprojected gif at full resolution
-
-target_arr.data = kk.GridManager.norm_to_uint8(
-        target_arr.data, resolution=256)
-kk.geo_plot.generate_raw_image(
-        #RGB=gm.subgrids[label]["am"].data[label].data,
-        RGB=target_arr.data,
-        image_path=figdir.joinpath(Path(out_key+"-raw"+ext)),
-        #image_path=figdir.joinpath(Path(sat_key+"-raw.png")),
-        gif=not use_target_time,
-        fps=gif_fps,
+kk.geo_plot.get_scalar_graphics( am=am,
+        matplotlib_path=figdir.joinpath(Path(out_key + \
+                ("-restricted" if not upper_bound is None else ""))),
+        raw_path=figdir.joinpath(Path(out_key + "-raw" + \
+                ("-restricted" if not upper_bound is None else ""))),
+        plot_spec=plot_spec,
+        target_time=target_time if use_target_time else None,
+        grid_center=grid_center if get_subgrid else None,
+        grid_aspect=grid_aspect if get_subgrid else None,
+        gif_fps = gif_fps,
         )
-#"""
 
-gm.clear()
-gm.load_pkl
