@@ -1,0 +1,95 @@
+#!/usr/bin/python
+"""
+Script for generating truecolor images at any time and geographic range.
+"""
+from datetime import datetime as dt
+from datetime import timedelta as td
+import numpy as np
+import xarray as xr
+import matplotlib.pyplot as plt
+from pathlib import Path
+import sys
+import subprocess
+import shlex
+import argparse
+
+import krttdkit as kk
+
+single_frame=True
+bucket="noaa-goes16"
+instrument="ABI"
+level="L1b" # Level 1b data
+product="RadC" # CONUS radiances
+
+# desired time of day in UTC
+recipe, target_time, grid_center, grid_aspect = kk.parse_args()
+
+# Just query past 15min for 5min CONUS data
+start=target_time-td(minutes=15)
+
+# Buffer directory to store temporary netCDFs and the background
+buffer_dir = Path("/tmp/truecolor_bg")
+# Output image path
+fig_path=buffer_dir.joinpath(Path("current_tc_bg.png"))
+
+lat_range, lon_range = kk.GridManager.get_grid_bounds(
+        grid_center, grid_aspect)
+_, b1keys = tuple(zip(*kk.get_aws.get_bucket_paths(bucket=bucket,
+        product=kk.abi_spec.ABIProduct(instrument, level, product),
+        start=start, end=target_time, band=1)))
+_, b2keys = tuple(zip(*kk.get_aws.get_bucket_paths(bucket=bucket,
+        product=kk.abi_spec.ABIProduct(instrument, level, product),
+        start=start, end=target_time, band=2)))
+_, b3keys = tuple(zip(*kk.get_aws.get_bucket_paths(bucket=bucket,
+        product=kk.abi_spec.ABIProduct(instrument, level, product),
+        start=start, end=target_time, band=3)))
+
+# Make sure the buffer directory exists
+buffer_dir.mkdir(exist_ok=True)
+# Take only the most recent AWS bucket key for each band
+paths = list(map(lambda k: [kk.get_aws.download_from_key(k, buffer_dir)],
+    [b1keys[-1], b2keys[-1], b3keys[-1]]))
+file_paths = []
+# Download and grid the data for each band that's closest
+# to the target time.
+B = kk.ABIManager().load_netCDFs( nc_paths=paths[0], ftype="noaa_aws",
+        dataset_label="b1", field="Rad", lat_range=lat_range,
+        lon_range=lon_range, buffer_arrays=True, buffer_dir=buffer_dir,
+        buffer_keep_pkls=False, buffer_append="buffer", convert_Ref=True,
+        stride=1, _debug=False).data["b1"].data[:,:,0]
+R = kk.ABIManager().load_netCDFs( nc_paths=paths[1], ftype="noaa_aws",
+        dataset_label="b2", field="Rad", lat_range=lat_range,
+        lon_range=lon_range, buffer_arrays=True, buffer_dir=buffer_dir,
+        buffer_keep_pkls=False, buffer_append="buffer", convert_Ref=True,
+        stride=2,).data["b2"].data[:,:,0]
+G = kk.ABIManager().load_netCDFs( nc_paths=paths[2], ftype="noaa_aws",
+        dataset_label="b3", field="Rad", lat_range=lat_range,
+        lon_range=lon_range, buffer_arrays=True, buffer_dir=buffer_dir,
+        buffer_keep_pkls=False, buffer_append="buffer", convert_Ref=True,
+        stride=1,).data["b3"].data[:,:,0]
+
+# Remove the netCDFs
+for p in paths:
+    print(f"Removing {p[0]}")
+    p[0].unlink()
+
+# Extra latitude or longitude may be included with 2km channel due
+# to latitude range rounding.
+R, G = kk.align_arrays(R, G)
+G, B = kk.align_arrays(G, B)
+B, R = kk.align_arrays(B, R)
+
+RGB = np.nan_to_num(np.dstack(kk.RecipeBook.cimss_truecolor(
+        band1=B, band2=R, band3=G)), 0)
+
+print(f"Final shape: {RGB.shape}")
+print(f"Zero values: ", [np.count_nonzero(RGB[:,:,i]==0)
+                         for i in range(RGB.shape[2])])
+RGB = kk.GridManager.norm_to_uint8(RGB)
+kk.geo_plot.generate_raw_image(
+        #RGB=np.dstack((R,G,B)), # non-color-corrected
+        RGB=RGB,
+        image_path=fig_path,
+        gif=False,
+        )
+subprocess.run(shlex.split(f"feh --bg-fill -q {fig_path.as_posix()}"))

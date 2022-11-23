@@ -12,6 +12,9 @@ TODO:
 
 from .ABIManager import ABIManager
 from pathlib import Path
+from datetime import datetime as dt
+from datetime import timedelta as td
+import argparse
 
 def ncs_to_AM_subgrid(
         nc_dir:Path, dataset_label:str, field:str, grid_center:tuple=None,
@@ -41,6 +44,80 @@ def ncs_to_AM_subgrid(
     if not pkl_path is None:
         AM.make_pkl(pkl_dir.joinpath(pkl_path))
     return AM
+
+def align_arrays(A, B):
+    if A.shape!=B.shape:
+        ydiff = A.shape[0]-B.shape[0]
+        xdiff = A.shape[1]-B.shape[1]
+        if ydiff>0:# A has ydiff more elements in the y direction
+            A = A[:-ydiff]
+        if ydiff<0:# B has ydiff more elements in the y direction
+            B = B[:ydiff,:]
+        if xdiff>0:# A has xdiff more elements in the x direction
+            A = A[:,:-xdiff]
+        if xdiff<0:# B has xdiff more elements in the x direction
+            B = B[:,:xdiff]
+    return A, B
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-H", "--hour", dest="hour", type=str,
+                        help="UTC hour of observation. If no day is " + \
+                                "provided, defaults to today.",
+                        default=None)
+    parser.add_argument("-M", "--minute", dest="minute", type=str,
+                        help="Minute of observation. If no hour is "+ \
+                                "provided, this value is ignored.",
+                        default=None)
+    parser.add_argument("-D", "--day", dest="day", type=str,
+                        help="Day in YYYYMMDD format",
+                        default=None)
+    parser.add_argument("-r", "--recipe", dest="recipe", type=str,
+                        help="Imagery recipe to use; defaults to truecolor",
+                        default="truecolor")
+    parser.add_argument("--center", dest="center", type=str,
+                        help="lat/lon center, formatted '\d+.\d+,\d+.\d+",
+                        default=None)
+    parser.add_argument("--aspect", dest="aspect", type=str,
+                        help="Grid aspect ratio, formatted '\d+.\d+,\d+.\d+",
+                        default=None)
+    raw_args = parser.parse_args()
+
+    if not raw_args.hour is None:
+        hour = int(raw_args.hour)%24
+        # Only regard the minutes argument if an hour is provided
+        target_tod = td( hours=hour,
+                minutes=0 if raw_args.minute is None \
+                        else int(raw_args.minute)%60)
+        # If no day is provided, default to the last occurance of the
+        # provided time.
+        if raw_args.day is None:
+            target_time = (dt.utcnow()-target_tod).replace(
+                    hour=0, minute=0, second=0, microsecond=0)+target_tod
+        # If a day and
+        else:
+            try:
+                target_day = dt.strptime(raw_args.day, "%Y%m%d")
+                target_time = target_day+target_tod
+            except:
+                raise ValueError("Target day must be in YYYYmmdd format.")
+    # Only accept a day argument if an hour is also provided
+    # If no day argument or hour argument is provided, default to now.
+    else:
+        if raw_args.day is None:
+            target_time = dt.utcnow()
+        else:
+            raise ValueError("You cannot specify a day without " + \
+                    "also specifying an hour.")
+    grid_center = None
+    grid_aspect = None
+    if raw_args.center and raw_args.aspect:
+        grid_center = tuple(map(float, raw_args.center.split(",")))
+        grid_aspect = tuple(map(float, raw_args.aspect.split(",")))
+    elif raw_args.center or raw_args.aspect:
+        raise ValueError("You must provide both a center and an aspect ratio")
+
+    return raw_args.recipe, target_time, grid_center, grid_aspect
 
 if __name__=="__main__":
     # Directory where temporary buffer pkls can be stored.

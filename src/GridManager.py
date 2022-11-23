@@ -22,7 +22,7 @@ class GridManager:
         Converts tuples describing a lat/lon centerpoint and lat/lon ranges
         to a minimum and maximum latitude and longitude. For example, a grid
         defined by grid_center=(25, -110), grid_aspect=(10, 20) would return
-        lat_range=(20, 30), lon_range = (-100, -120).
+        lat_range = (20, 30), lon_range = (-100, -120).
         :param grid_center: (lat, lon) centerpoint of the desired domain
         :param grid_aspect: (dlat, dlon) "side lengths" of domain (in degrees)
         """

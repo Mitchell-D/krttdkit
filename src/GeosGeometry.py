@@ -50,18 +50,27 @@ class GeosGeometry:
                 f"SIZE: {self._lons.size}  " + \
                 f"NaNs: {np.count_nonzero(np.isnan(self._lons))}"
 
-    @staticmethod
-    def _2d_find_val(data:np.ndarray, val):
-        """
-        Algorithm for finding a specific value in a 2d array that is monotonic
-        along both of its axes.
-        """
+    def get_closest_latlon(self, lat, lon):
+        """ returns the index of the pixel closest to the provided lat/lon """
+        masked_lats = np.nan_to_num(self._lats, 999999)
+        masked_lons = np.nan_to_num(self._lons, 999999)
+
+        # Get an array of angular distance to the desired lat/lon
+        lat_diff = masked_lats-lat
+        lon_diff = masked_lons-lon
+        total_diff = np.sqrt(lat_diff**2+lon_diff**2)
+        min_idx = tuple([ int(c[0]) for c in
+            np.where(total_diff == np.amin(total_diff)) ])
+        return min_idx
 
     def get_subgrid_indeces(self, lat_range:tuple=None, lon_range:tuple=None,
                             _debug:bool=False):
         """
         Returns indeces of lat/lon values closest to the provided latitude
         or longitude range
+
+        Both latitude and longitude ranges must be specified, or else the
+        terminal indeces of the full lat/lon array will be returned.
 
         :param lat_range: (min, max) latitude in degrees.
                 Defaults to full size.
@@ -76,85 +85,33 @@ class GeosGeometry:
                 ( (lat_index_0, lat_index_f),
                     (lon_index_0, lon_index_f) )
         """
-        # Set default lat/lon boundaries to the full domain.
-        ul_index = [0, 0]
-        lr_index = [self._lons.shape[0]-1, self._lats.shape[1]-1]
+        valid_lats = not lat_range is None and len(lat_range)==2 \
+                and not next(l is None for l in lat_range)
+        valid_lons = not lon_range is None and len(lon_range)==2 \
+                and not next(l is None for l in lon_range)
+        if not valid_lats or not valid_lons:
+            if _debug:
+                print("latitude and longitude ranges not specified;" + \
+                        " defaulting to full array size.")
+            minlat, maxlon = self._lats.shape
+            return ((0,minlat), (0, maxlon))
 
-        # If the user provided a lat or lon range, find indeces to
-        # subset the data arrays as close as possible to the
-        # requested dimensions. Note that this means the actual
-        # lat/lon borders may be greater or less than the requested
-        # range; the grid isn't garunteed to be a superset or a subset
-        # of the original data.
-        # Lower left and upper right index of lat/lon range.
-        #non_nan_lons = [ lon for lon in self._lons
-        #                if not np.isnan(lon) ]
+        lr_latlon = [None, None]
+        ul_latlon = [None, None]
+        lr_latlon[0], ul_latlon[0] = sorted(lat_range)
+        ul_latlon[1], lr_latlon[1] = sorted(lon_range)
+        lr_latlon, ul_latlon = zip(lat_range, lon_range[::-1])
+        ul_index = self.get_closest_latlon(*ul_latlon)
+        lr_index = self.get_closest_latlon(*lr_latlon)
 
-        # Mask nan values with numbers that will never be close to
-        # a selected lat/lon range, then find the closest lat and lon
-        # points to the provided boundaries.
-        masked_lons = np.nan_to_num(self._lons, 999999)
-        masked_lats = np.nan_to_num(self._lats, 999999)
-
-        """
-        overall_min_lat = np.amin(masked_lats)
-        overall_min_lon = np.amin(masked_lons)
-        overall_max_lat = np.amax(np.nan_to_num(self._lats, -9999999))
-        overall_max_lon = np.amax(np.nan_to_num(self._lons, -9999999))
-        print("total lon range:",overall_min_lon, overall_max_lon)
-        print("total lat range:",overall_min_lat, overall_max_lat)
-        """
         if _debug:
             print("requested lat range: ",lat_range)
             print("requested lon range: ",lon_range)
+            print("upper left pixel: ",ul_latlon, ul_index,
+                  (self._lats[ul_index], self._lons[ul_index]))
+            print("lower right pixel: ",lr_latlon, lr_index,
+                  (self._lats[lr_index], self._lons[lr_index]))
 
-        if lat_range:
-            min_lat_diff = (masked_lats-lat_range[0])**2
-            max_lat_diff = (masked_lats-lat_range[1])**2
-        if lon_range:
-            min_lon_diff = (masked_lons-lon_range[0])**2
-            max_lon_diff = (masked_lons-lon_range[1])**2
-
-        ul_distance = np.sqrt(max_lat_diff + min_lon_diff)
-        lr_distance = np.sqrt(min_lat_diff + max_lon_diff)
-        ul_index = tuple([ int(c[0]) for c in
-                          np.where(ul_distance == np.amin(ul_distance)) ])
-        lr_index = tuple([ int(c[0]) for c in
-                          np.where(lr_distance == np.amin(lr_distance)) ])
-        if _debug:
-            print("Found upper left lat/lon: " + \
-                f"{self._lats[ul_index[0], ul_index[1]]}, " + \
-                f"{self._lons[ul_index[0], ul_index[1]]}")
-            print(f"At coordinate array index {ul_index}")
-            print("Found lower right lat/lon: " + \
-                f"{self._lats[lr_index[0], lr_index[1]]}, " + \
-                f"{self._lons[lr_index[0], lr_index[1]]}")
-            print(f"At coordinate array index {lr_index}")
-
-        # Find the indeces of the values with a minimum differences to any
-        # provided  lat or longitude ranges.
-        """
-        if lat_range:
-            ul_index[0] = np.where(abs(masked_lats-lat_range[1]) == \
-                    np.amin(abs(masked_lats-lat_range[1])))#[0][0]
-            lr_index[0] = np.where(abs(masked_lats-lat_range[0]) == \
-                    np.amin(abs(masked_lats-lat_range[0])))#[0][0]
-        if lon_range:
-            ul_index[1] = np.where(abs(masked_lons-lon_range[0]) == \
-                    np.amin(abs(masked_lons-lon_range[0])))#[0][0]
-            lr_index[1] = np.where(abs(masked_lons-lon_range[1]) == \
-                    np.amin(abs(masked_lons-lon_range[1])))#[0][0]
-
-        print(list(masked_lats[ul_index[0]]))
-        print(list(masked_lats[lr_index[0]]))
-        print(list(masked_lons[ul_index[1]]))
-        print(list(masked_lons[lr_index[1]]))
-
-        print("UL corner px:",ul_index)
-        print("LR corner px:",lr_index)
-        print("found lat range:",masked_lats[ul_index[0], ul_index[1]], masked_lats[lr_index[0], lr_index[1]])
-        print("found lon range:",masked_lons[ul_index[0], ul_index[1]], masked_lons[lr_index[0], lr_index[1]])
-        """
         return tuple(zip(ul_index, lr_index))
 
     @property

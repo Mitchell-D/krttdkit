@@ -10,9 +10,8 @@ import gc
 import re
 from pathlib import Path
 from dataclasses import dataclass
-from multiprocessing import Pool
 
-from .GeosGeometry import GeosGeometry
+from GeosGeometry import GeosGeometry
 
 class ABIManager:
     ftypes = {
@@ -37,34 +36,6 @@ class ABIManager:
         self._data = None
         self._label = None
 
-    def get_closest_latlon(self, lat, lon):
-        """
-        return the pixel index closest to the provided lat/lon
-        """
-        masked_lats = np.nan_to_num(
-                self._data[self._label]["lat"].data, 999999)
-        masked_lons = np.nan_to_num(
-                self._data[self._label]["lon"].data, 999999)
-
-        # Get an array of angular distance to the desired lat/lon
-        lat_diff = masked_lats-lat
-        lon_diff = masked_lons-lon
-        total_diff = np.sqrt(lat_diff**2+lon_diff**2)
-        min_idx = tuple([ int(c[0]) for c in
-                np.where(total_diff == np.amin(total_diff)) ])
-        return min_idx
-
-    def get_subgrid_indeces(self, lat_range:tuple=None, lon_range:tuple=None):
-        """
-        Find the range of pixel indeces closest to the provided lat or lon
-        ranges.
-        """
-        ll, ur = tuple(zip(lat_range, lon_range))
-        ll_ind = self.get_closest_latlon(*ll)
-        ur_ind = self.get_closest_latlon(*ur)
-        lat_ind_range, lon_ind_range = tuple(zip(ll_ind, ur_ind))
-        return lat_ind_range[::-1], lon_ind_range
-
     @property
     def geom(self):
         """
@@ -78,13 +49,6 @@ class ABIManager:
         Returns the ABIManager-style xarray value stored in the data attribute
         """
         return self._data
-
-    def info():
-        return {
-                "data":self._data,
-                "geom":self._geom,
-                "lat_min":np.amin(self._data.coords["lat"])
-                }
 
     def _get_geom(self, dataset:xr.Dataset):
         """
@@ -115,19 +79,12 @@ class ABIManager:
         """
         return dt.datetime.utcfromtimestamp(int(dt64)/1e9)
 
-    def set_stride(self, stride:int):
-        """
-        Subset the data grid by parsing every nth index out of both the x and
-        y dimension coordinate arrays and data values.
-        """
-        self._data = self._data.thin(indexers={"x":stride, "y":stride})
-
-    def load_netCDFs(self, nc_paths:list, ftype:str, dataset_label:str,
-                     field:str, lat_range:tuple=None, lon_range:tuple=None,
-                     buffer_arrays:bool=False, buffer_dir:Path=None,
-                     buffer_keep_pkls:bool=False, buffer_append:str="",
-                     convert_Tb:bool=False, convert_Ref:bool=False,
-                     stride:int=1, _debug:bool=False):
+    def load_netCDFs(self, nc_paths:list, ftype:str="noaa_aws",
+                     dataset_label:str, field:str, lat_range:tuple=None,
+                     lon_range:tuple=None, buffer_arrays:bool=False,
+                     buffer_dir:Path=None, buffer_keep_pkls:bool=False,
+                     buffer_append:str="", convert_Tb:bool=False,
+                     convert_Ref:bool=False, stride:int=1, _debug:bool=False):
         """
         Loads many chronological netCDF files as xarray DataArrays in
         a xarray Dataset
@@ -184,7 +141,7 @@ class ABIManager:
                 ABIManager._FAIL(
                     f"{nc.as_posix()} isn't a valid netCDF path!")
 
-            stime = ABIManager.parse_stime(nc, ftype=ftype)
+            stime = ABIManager._parse_stime(nc, ftype=ftype)
             if _debug: print(f"Loading data from {nc.name}")
             ds = xr.load_dataset(nc)
 
@@ -246,12 +203,13 @@ class ABIManager:
 
                 # Get planck coefficient values from the netCDF if requested.
                 if convert_Tb:
-                    fk1 = ds["planck_fk1"].data
-                    fk2 = ds["planck_fk2"].data
-                    bc1 = ds["planck_bc1"].data
-                    bc2 = ds["planck_bc2"].data
-                    if np.isnan(fk1):
-                        ABIManager._FAIL("Provided netCDF doesn't have " + \
+                    try:
+                        fk1 = ds["planck_fk1"].data
+                        fk2 = ds["planck_fk2"].data
+                        bc1 = ds["planck_bc1"].data
+                        bc2 = ds["planck_bc2"].data
+                    except:
+                        ABIManager._FAIL("Provided netCDF doesn't have" + \
                             "planck coefficients. Is it actually infrared?")
                 elif convert_Ref:
                     try:
@@ -264,6 +222,7 @@ class ABIManager:
             # tuple along with its time values.
             ds_subset = ds[field].data[lat_ind_range[0]:lat_ind_range[1]+1,
                                        lon_ind_range[0]:lon_ind_range[1]+1]
+
             # If requested, convert radiances to brightness temperatures
             # using Planck's function and the previously-parsed coeffs.
             if convert_Tb:
@@ -328,7 +287,6 @@ class ABIManager:
                 }
             )
         self._data = nc_data
-        return self
 
     @staticmethod
     def convert_to_Tb(rads:np.array, fk1:np.array, fk2:np.array,
@@ -534,7 +492,7 @@ class ABIManager:
         geom = geom if geom else self._geom
         return astronomy.sun_zenith_angle(utc_datetime, geom.lons, geom.lats)
 
-    def restrict_data(self, dataset_label:str=None, bounds:list=[None, None],
+    def restrict_data(self, dataset_label:str, bounds:list=[None, None],
                       copy:bool=False, replace_val:list=[None, None]):
         """
         Restrict data values to the provided inclusive boundaries.
@@ -554,17 +512,12 @@ class ABIManager:
                 NOTE: if you want to replace with null-like values, use
                       np.nan instead of None.
         """
-        bounds = list(bounds)
-        replace_val = list(replace_val)
         if copy:
             arr_copy = copy.deepcopy(self._data)
             self._data = None
             gc.collect()
         else:
             arr_copy = self._data
-
-        if dataset_label is None:
-            dataset_label = self._label
 
         if len(bounds)!=2:
             ABIManager._FAIL(reason="Data boundaries must be a 2-list "+ \
@@ -595,7 +548,7 @@ class ABIManager:
         self._data = arr_copy
         del arr_copy
         gc.collect()
-        return self
+        return None
 
 
     def from_data_and_geom(self, data:xr.Dataset, geom:GeosGeometry,
@@ -608,32 +561,17 @@ class ABIManager:
         :param data: Dataset derived from another ABIManager object.
         :param geom: GeosGeometry object describing the provided data.
         """
-        self._data = xr.Dataset({dataset_label:data})
+        if dataset_label not in self._data.data_vars.keys():
+            raise ValueError(f"Dataset label {dataset_label} isn't " + \
+                    "in the provided data's data_vars! The provided data" + \
+                    f" has these variables: {data.data_vars.keys()}")
+        self._data = data
         self._geom = geom
         self._label = dataset_label
         return self
 
     @staticmethod
-    def paths_in_time_range(data_dir:Path, ftype:str,
-                  ti:dt.datetime=None, tf:dt.datetime=None):
-        """
-        Returns list of paths that fall into the inclusive provided time range
-        when time is parsed from the file name corresponding to ftype.
-
-        :param data_dir: directory containing files names to parse.
-        :param ftype: valid ftype (defined as ABIManager class attribute)
-        :param ti: initial time; defaults to None for no lower bound
-        :param tf: final time; defaults to None for no upper bound
-        """
-        time_paths = sorted([(ABIManager.parse_stime(p, ftype), p)
-                for p in data_dir.iterdir()], key=lambda tp: tp[0])
-        # select time paths that are in-bounds
-        valid = lambda tp: (ti is None or tp[0]>=ti) \
-                            and (tf is None or tp[0]<=tf)
-        return [ tp[1] for tp in filter(valid, time_paths) ]
-
-    @staticmethod
-    def parse_stime(ncfile:Path, ftype:str):
+    def _parse_stime(ncfile:Path, ftype:str):
         """
         Parse the observation start time from the netCDF file path
 
@@ -664,4 +602,102 @@ class ABIManager:
         exit(1)
 
 if __name__=="__main__":
-    pass
+    # Collect paths to all netCDF files in the data directory
+    datadir = Path("/home/krttd/uah/22.f/aes572/hw3/data/great_lakes/band02")
+    #datadir = Path("/home/krttd/uah/22.f/aes572/hw3/data/great_lakes/band07")
+    sorted_files = list(datadir.iterdir())
+    sorted_files.sort()
+
+    #pkl_path = Path("/home/krttd/uah/22.f/aes572/hw3/data/pkls/michigan_bt_band07.pkl")
+    #pkl_path = Path("/home/krttd/uah/22.f/aes572/hw3/data/pkls/supwater_bt_band07.pkl")
+    #pkl_path = Path("/home/krttd/uah/22.f/aes572/hw3/data/pkls/supwater_vis_band02.pkl")
+    pkl_path = Path("/home/krttd/uah/22.f/aes572/hw3/data/pkls/supwater_vis_band02-stride4.pkl")
+
+    buffer_dir = Path("/home/krttd/uah/22.f/aes572/hw3/data/buffer")
+
+    dataset_label = "g16b02"
+    #dataset_label = "g16b07"
+
+    AM = ABIManager()
+
+    #"""
+    # load subsets of a list of chronological netCDF files and make a pkl file
+    # to store the complete dataset as a DataArray
+
+    #"""
+    # Load netCDFs in a specified geographic range.
+    #geo_center = (42, -85)
+    geo_center = (42, -87.2)
+    #aspect = (8, 12)
+    aspect = (1.6, 2.4)
+    stride = 4
+
+    #"""
+    AM.load_netCDFs(
+            nc_paths=sorted_files,
+            #nc_paths=sorted_files[45:55],
+            #nc_paths=sorted_files[35:65],
+            ftype="noaa_aws",
+            dataset_label=dataset_label,
+            field="Rad",
+            lat_range=(geo_center[0]-aspect[0]/2, geo_center[0]+aspect[0]/2),
+            lon_range=(geo_center[1]-aspect[1]/2, geo_center[1]+aspect[1]/2),
+            buffer_arrays=True,
+            buffer_dir=buffer_dir,
+            buffer_keep_pkls=False,
+            buffer_append="full",
+            convert_Tb=False,
+            stride=stride,
+            _debug=True,
+           )
+    #"""
+    #AM.replace_nans()
+    AM.make_pkl(pkl_path)
+    #AM.load_pkl(pkl_path, dataset_label=dataset_label)
+    #print(AM.data)
+
+    #tmp_latlon = { "lats": AM.geom.lats, "lons": AM.geom.lons }
+    #with open("data/latlons.pkl", "wb") as pklfp:
+    #    pkl.dump(tmp_latlon, pklfp)
+
+    """
+    # Testing constraining data to boundaries.
+    restricted_data_path = Path(
+            "/home/krttd/uah/22.f/aes572/hw2/data/pkls/bt_b02_BigPicture-restricted.pkl")
+    AM.restrict_data(
+            bounds=[273, None],
+            copy=False,
+            replace_val=[None, None]
+            )
+    AM.make_pkl(restricted_data_path)
+    """
+    """
+    #AM.load_pkl(restricted_data_path)
+    print(f"Data nan count: {np.count_nonzero(np.isnan(AM.data.data))}")
+    print(f"Data size:      {AM.data.size}")
+    print(f"Width (px): {AM.data['lon'].size}")
+    print(f"Height (px): {AM.data['lat'].size}")
+
+    print(f"lat range: ({min(AM.data.coords['lat'])}, " + \
+            f"{max(AM.data.coords['lat'])}")
+    print(f"lat size: {AM.data.coords['lat'].size}")
+    print(f"lon range: ({min(AM.data.coords['lon'])}, " + \
+            f"{max(AM.data.coords['lon'])}")
+    print(f"lon size: {AM.data.coords['lon'].size}")
+
+    """
+    """
+    print(AM.data)
+    print(AM.data.coords)
+    print(AM.data.dims)
+    print(f"time range: ({min(AM.data.coords['time'])}, " + \
+            f"{max(AM.data.coords['time'])}")
+    print(f"time size: {AM.data.coords['time'].size}")
+    """
+
+    """
+    sample_time = dt.datetime(year=2021, month=6, day=29, hour=21, minute=40)
+    print(f"closest index at {sample_time}: " + \
+            f"{AM.index_at_time(sample_time, mode='close')}")
+    print(AM.array_from_time(sample_time))
+    """
