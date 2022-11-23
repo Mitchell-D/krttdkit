@@ -1,6 +1,10 @@
 #!/usr/bin/python
 """
 Script for generating truecolor images at any time and geographic range.
+
+EXAMPLE COMMAND:
+September 23, 2022 at 22:20 UTC, centered on Madison, AL with 9 Lat x 16 Lon aspect
+krttd_truecolor -D 20221123 -H 22 -M 20 --center=34.7512,-86.7703 --aspect=9,16
 """
 from datetime import datetime as dt
 from datetime import timedelta as td
