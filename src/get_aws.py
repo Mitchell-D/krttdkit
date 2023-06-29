@@ -59,7 +59,7 @@ def download_from_key(key, directory:Path):
     """
     f = directory.joinpath(Path(key.name.split("/")[-1]))
     print(f"Downloading {key.name}\n\tto {f}")
-    with open(f.as_posix(), "w") as nc_fp:
+    with open(f.as_posix(), "wb") as nc_fp:
         key.get_contents_to_file(nc_fp)
     return f
 

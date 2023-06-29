@@ -7,3 +7,4 @@ from .src.GridManager import GridManager
 from .src import geo_plot
 from .src import RecipeBook
 from .src import abi_spec, get_aws
+from .src.Spectrum import Spectrum

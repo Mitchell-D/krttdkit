@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from dataclasses import dataclass
 from multiprocessing import Pool
+from pprint import pprint as ppt
 
 from .GeosGeometry import GeosGeometry
 
@@ -123,11 +124,11 @@ class ABIManager:
         self._data = self._data.thin(indexers={"x":stride, "y":stride})
 
     def load_netCDFs(self, nc_paths:list, ftype:str, dataset_label:str,
-                     field:str, lat_range:tuple=None, lon_range:tuple=None,
-                     buffer_arrays:bool=False, buffer_dir:Path=None,
-                     buffer_keep_pkls:bool=False, buffer_append:str="",
-                     convert_Tb:bool=False, convert_Ref:bool=False,
-                     stride:int=1, _debug:bool=False):
+                     field:str=None, lat_range:tuple=None,
+                     lon_range:tuple=None, buffer_arrays:bool=False,
+                     buffer_dir:Path=None, buffer_keep_pkls:bool=False,
+                     buffer_append:str="", convert_Tb:bool=False,
+                     convert_Ref:bool=False, stride:int=1, _debug:bool=False):
         """
         Loads many chronological netCDF files as xarray DataArrays in
         a xarray Dataset
@@ -188,6 +189,10 @@ class ABIManager:
             if _debug: print(f"Loading data from {nc.name}")
             ds = xr.load_dataset(nc)
 
+            if field not in ds.keys():
+                # BIG assumption that first key is the normal data field
+                field = list(ds.keys()).pop(0)
+
             """
             If the data needs to be subset by equal-interval index skipping,
             construct a new dataset with the appropriate axes. I had to make
@@ -240,7 +245,7 @@ class ABIManager:
                 if _debug:
                     print(f"Setting coordinates using observation at {stime}")
                     print("raw ds nancount: ",
-                          np.count_nonzero(np.isnan(ds["Rad"])))
+                          np.count_nonzero(np.isnan(ds[field])))
                     print("raw ds size:     ",ds[field].size)
                     print("raw ds shape:     ",ds[field].shape)
 
@@ -519,6 +524,7 @@ class ABIManager:
         print(f"Generating pickle {pkl_path.as_posix()}")
         with open(pkl_path.as_posix(), "wb") as pklfp:
             pkl.dump(self._data, pklfp)
+        return pkl_path.as_posix()
 
     def solar_zenith_angles(self, utc_datetime:dt.datetime,
                             geom:GeosGeometry=None):

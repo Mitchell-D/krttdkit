@@ -170,7 +170,7 @@ def geo_rgb_plot(R:np.ndarray, G:np.ndarray, B:np.ndarray, fig_path:Path,
     print(f"Generated figure at: {fig_path}")
 
 def geo_scalar_plot(data:np.ndarray, lat:np.ndarray, lon:np.ndarray,
-                    fig_path:Path, plot_spec:dict={},
+                    fig_path:Path=None, plot_spec:dict={},
                     animate:bool=False):
     """
     Plot scalar values on a lat/lon grid specified by an xarray Dataset with
@@ -282,7 +282,10 @@ def geo_scalar_plot(data:np.ndarray, lat:np.ndarray, lon:np.ndarray,
     if animate:
         ani.save(fig_path.as_posix(), dpi=dpi)
     else:
-        plt.savefig(fig_path.as_posix(), dpi=dpi, bbox_inches='tight')
+        if fig_path:
+            plt.savefig(fig_path.as_posix(), dpi=dpi, bbox_inches='tight')
+        else:
+            plt.show()
     print(f"Generated figure at: {fig_path}")
 
 def get_scalar_graphics(am:ABIManager, matplotlib_path:Path=None,
@@ -343,7 +346,7 @@ def get_scalar_graphics(am:ABIManager, matplotlib_path:Path=None,
         # Plot a "raw" unprojected gif at full resolution
         # Normalize pixel array to 256 integer colors
         target_arr.data = GridManager.norm_to_uint8(
-                target_arr.data, resolution=256)
+                target_arr.data, resolution=255)
         generate_raw_image(
                 RGB=target_arr.data,
                 image_path=raw_path.with_suffix(ext),

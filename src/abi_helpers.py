@@ -81,6 +81,9 @@ def parse_args():
     parser.add_argument("--aspect", dest="aspect", type=str,
                         help="Grid aspect ratio, formatted '\d+.\d+,\d+.\d+",
                         default=None)
+    parser.add_argument("--sat", dest="sat", type=str,
+                        help="Satellite to query data from",
+                        default="noaa-goes16")
     raw_args = parser.parse_args()
 
     if not raw_args.hour is None:
