@@ -5,18 +5,24 @@ from datetime import timedelta
 from dataclasses import dataclass
 from collections import namedtuple
 
-from krttdkit.acquire.abi_desc import abi_desc
 from krttdkit.visualize import TextFormat as TF
+from krttdkit.acquire.goes_info import goes_descriptions, goes_products
 
 GOES_Product = namedtuple("GOES_Product", "satellite sensor level scan")
 GOES_File = namedtuple("GOES_File", "product  stime label path")
 
 class GetGOES:
-    def __init__(self):
+    def __init__(self, refetch_api:bool=False):
         self._s3 = s3fs.S3FileSystem(anon=True)
         self._valid_satellites = {"16", "17", "18"}
 
-        self._products = self._get_product_api()
+        if refetch_api:
+            self._products = self._get_product_api()
+        else:
+            self._products = list(map(
+                lambda t: GOES_Product(*t),
+                goes_products
+                ))
         # Dictionary of valid options for product constraints
         self._valid = {
                 "satellite":self._valid_satellites,
@@ -24,6 +30,32 @@ class GetGOES:
                 "level":tuple(set(p.level for p in self._products)),
                 "scan":tuple(set(p.scan for p in self._products)),
                 }
+
+    def get_valid(self, product_field:str):
+        """
+        Return a list of valid options for a product field
+        """
+        assert product_field in self._valid.keys()
+        return self._valid[product_field]
+
+    def products(self, refetch_api:bool=False):
+        """
+        :@param refetch_api: If True, re-queries the AWS S3 bucket for products
+        :@return: List of valid GOES_Product objects:
+        """
+        if refetch_api:
+            return self._get_product_api()
+        return self._products
+
+    def product_tuples(self, refetch_api:bool=False):
+        """
+        :@param refetch_api: If True, re-queries the AWS S3 bucket for products
+        :@return: Valid GOES_Product objects as tuples of strings like:
+            (satellite, sensor, level, scan).
+        """
+        if refetch_api:
+            return list(map(tuple, self._get_product_api()))
+        return list(map(tuple, self._products))
 
     def download(self, file:GOES_File, data_dir:Path, replace=False):
         """
@@ -70,7 +102,7 @@ class GetGOES:
                 products.append(GOES_Product(satellite, sensor, level, scan))
         return products
 
-    def list_products(self,satellite=None,sensor=None,level=None,scan=None):
+    def search_products(self,satellite=None,sensor=None,level=None,scan=None):
         """
         Return a list of available products given a series of constraints
         """
@@ -104,7 +136,7 @@ class GetGOES:
             cand = [c for c in cand if c.scan==scan]
         return cand
 
-    def list_hour(self, product:GOES_Product, target_time:datetime,
+    def search_hour(self, product:GOES_Product, target_time:datetime,
                   label_substr:str=None):
         """
         List all of the available files for the provided product within the
@@ -136,7 +168,7 @@ class GetGOES:
                 ))
         return paths
 
-    def list_range(self, product:GOES_Product, init_time:datetime,
+    def search_range(self, product:GOES_Product, init_time:datetime,
                    final_time:datetime, label_substr:str=None):
         """
         List all files with start times for the specified product falling
@@ -158,7 +190,7 @@ class GetGOES:
                             init_time.day, init_time.hour)
         files = []
         while tmp_time<final_time:
-            files += self.list_hour(product, tmp_time, label_substr)
+            files += self.search_hour(product, tmp_time, label_substr)
             tmp_time += timedelta(hours=1)
 
         files = [f for f in sorted(files,key=lambda f:f.stime)
@@ -184,7 +216,7 @@ class GetGOES:
         assert all(product)
         start = target_time-timedelta(hours=time_window_hrs/2)
         end = target_time+timedelta(hours=time_window_hrs/2)
-        files = self.list_range(product, start, end, label_substr)
+        files = self.search_range(product, start, end, label_substr)
         # If a label is provided, constrain files by substring
         if label_substr:
             files = [f for f in files if label_substr in f.label]
@@ -195,44 +227,124 @@ class GetGOES:
 
     def describe(self, product:GOES_Product):
         """
-        Pretty-print product descriptions if available in abi_desc.py,
+        Pretty-print product descriptions if available in goes_info.py,
         returning None in every case. If you need the string version of
-        descriptions, import the abi_desc module directly instead of using
+        descriptions, import the goes_info module directly instead of using
         an instance of the GetGOES class.
 
         :@param product: valid product to describe
         """
         prod_str = "-".join(product[1:])
-        if prod_str not in abi_desc.keys():
-            print(TF.RED(f"Missing description for {prod_str}", bright=True))
+        if prod_str not in goes_descriptions.keys():
+            desc = TF.RED(f"(Missing description)", bright=True)
         else:
-            print(TF.BLUE(prod_str, bright=True) + " " + \
-                    TF.WHITE(abi_desc[prod_str], bright=True))
+            desc = TF.WHITE(goes_descriptions[prod_str], bright=True)
+        print(TF.BLUE(f"{prod_str:<16}", bright=True)+desc)
+        return desc
 
-def check_config():
+def list_config(satellite:str="16", goesapi:GetGOES=None):
     """
     """
-    prods = GetGOES().list_products()
-    cfg_prods = list(abi_desc.keys())
-    cfg_prods = [GOES_Product("16", *p.split("-")) for p in cfg_prods]
-    print(TF.RED("RED products are available but not described", bright=True))
-    print(TF.RED("GREEN products are available and described", bright=True))
-    for p in prods:
+    goesapi = GetGOES() if goesapi is None else goesapi
+    cfg_prods = list(goes_descriptions.keys())
+    cfg_prods = [GOES_Product(satellite, *p.split("-")) for p in cfg_prods]
+    for p in goesapi.search_products(satellite=satellite):
         if p not in  cfg_prods:
             print(TF.RED(p))
         else:
             print(TF.GREEN(p))
+    print(TF.RED("\nRED ",bright=True) +
+          TF.YELLOW("products are available but don't have a description"))
+    print(TF.GREEN("GREEN ") +
+          TF.YELLOW("products are available and have a description"))
 
+def visual_search(query:GOES_Product=None, time:datetime=None,
+                  search_window:timedelta=None, goesapi:GetGOES=None,
+                  label_substr:str=None):
+    """
+    Pretty-prints product or file search results along with useful information.
+    This method is meant to serve as a user interface to help narrow down
+    product and file selection in accordance with the AWS API format.
+
+    Use a GetGOES object and a GOES_Product query to either...
+    (1) List GOES product options given constraints in the query.
+    (2) Return a list of GOES_File objects for valid downloadable netCDFs
+        if a specific product query is given (valid, with no None fields).
+
+    GOES_Product valid options:
+    satellite: ("16", "17", "18") # or None
+    sensor:    ("ABI", "SUVI", "SEIS", "EXIS", "MAG", "GLM") # or None
+    level:     ("L1b", "L2") # or None
+    scan:      # Many options. Set provided query.scan to None for a listing.
+
+    :@param query: GOES_Product object, which is a namedtuple with string
+        fields for satellite, sensor, level, and scan. If some of the fields
+        are set to None, a list of valid products will be returned. Otherwise
+        if all query fields are provided and valid, a list of avai
+    :@param goesapi: (Optional) existing GetGOES() instance. When a GetGOES()
+        object is initialized, it fetches valid product options by querying
+        the S3 bucket. Providing an existing object saves time since a new
+        get request doesn't need to be made.
+    :@param time: If a full valid product is specified by the query, time
+        parameter sets a search target time. If no search_window is provided,
+        the function returns all files with a stime closest to provided time.
+    :@param search_window: Timedelta object added to the 'time' parameter to
+        describe a time range in which to return files. This may be negative
+        to describe a window
+    """
+    goesapi = GetGOES() if goesapi is None else goesapi
+    query = GOES_Product(None, None, None, None) if query is None else query
+    # If the product has None fields, search for and describe valid products.
+    if not all(query):
+        TF.YELLOW(f"Printing product descriptions for {query}", bold=True)
+        products = goesapi.search_products(**query._asdict())
+        for p in products:
+            goesapi.describe(p)
+        return products
+    # Otherwise, search for the product within the provided time bounds
+    else:
+        if query not in goesapi.products():
+            raise ValueError(f"Provided product isn't a valid option")
+        if time is None:
+            raise ValueError(
+                    f"You must provide a time to search for files")
+        if search_window is None:
+            files = goesapi.get_closest_to_time(
+                    product=query,
+                    target_time=time,
+                    label_substr=label_substr,
+                    )
+            for f in files:
+                print(TF.YELLOW(f.stime.strftime("%Y%m%d %H:%M ")),
+                      Path(f.path).name)
+            if not files:
+                return []
+            # All returned files will have the same start time
+            time = files[0].stime
+            print(TF.BLUE("\nFound data at time ") + TF.WHITE(time))
+            print(TF.BLUE("With unique labels: "),
+                  sorted(list(set([ f.label for f in files]))))
+        else:
+            # If the provided search window is negative, it should be the
+            # initial time in the search range.
+            init_time, final_time = tuple(sorted([time, time+search_window]))
+            files = goesapi.search_range(
+                    product=query,
+                    init_time=init_time,
+                    final_time=final_time,
+                    label_substr=label_substr,
+                    )
+            if not files:
+                return []
+            all_times = sorted(list(set([ f.stime for f in files])))
+            for f in files:
+                print(TF.YELLOW(f.stime.strftime("%Y%m%d %H:%M ")),
+                      Path(f.path).name)
+            print(TF.BLUE("\nFound data in time range ") +
+                  TF.WHITE(f"[{all_times[0]}, {all_times[-1]}]"))
+            print(TF.BLUE("With unique labels: "),
+                          sorted(list(set([ f.label for f in files]))))
+    return files
 
 if __name__=="__main__":
-    check_config()
-    target_time = datetime(2022, 7, 14, 10, 36, 17)
-    end_time = datetime(2022, 7, 15, 1, 26, 17)
-    gg = GetGOES()
-    for p in gg.list_products("17", "ABI", "L1b"):
-        print(p)
-    products = gg.list_range(
-            product=GOES_Product("17", "ABI", "L1b", "RadC"),
-            init_time=target_time,
-            final_time=end_time,
-            )
+    list_config()

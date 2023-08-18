@@ -1,9 +1,13 @@
+"""
+Collection of functions for downloading and parsing NOAA GOES ABI netCDF files
+into a common format
+"""
 import netCDF4 as nc
 import numpy as np
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
-from krttdkit.acquire import GetGOES, GOES_Product, GOES_File
+from krttdkit.acquire.get_goes import GetGOES, GOES_Product, GOES_File
 from krttdkit.products import GeosGeom
 
 def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
@@ -38,12 +42,12 @@ def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
     assert scan in ("C", "F", "M1", "M2")
     assert all(int(b) in range(1,17) for b in bands)
     search_str = f"Rad{scan[0]}"
-    gg = GetGOES()
+    goesapi = GetGOES()
     prod = GOES_Product(satellite, "ABI", "L1b", search_str)
     if not end_time is None:
-        files = gg.list_range(prod, start_time, end_time)
+        files = goesapi.list_range(prod, start_time, end_time)
     else:
-        files = gg.get_closest_to_time(prod, start_time)
+        files = goesapi.get_closest_to_time(prod, start_time)
 
     # If mesoscale scan requested, narrow down results to the requested view.
     if scan[0]=="M":
@@ -53,7 +57,7 @@ def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
     for b in bands:
         band_str = f"C{int(b):02}"
         band_files = [
-                gg.download(f, data_dir, replace)
+                goesapi.download(f, data_dir, replace)
                 for f in files
                 if band_str in f.label.split("-")[-1]
                 ]
@@ -235,8 +239,8 @@ if __name__=="__main__":
     #get_abi_l1b(abi_paths[0])
     start = datetime(2023,8,15,0,30)
     end = datetime(2023,8,15,1,0)
-    #end = None
     bands = [2,5,14]
+
     #bands = download_l1b(data_dir, 16, "M2", [2, 5, 14], start, end)
     band_paths = download_l1b(data_dir, 16, "C", bands, start, end)
     for i in range(len(bands)):
