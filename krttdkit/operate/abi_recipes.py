@@ -1,8 +1,8 @@
 """
-Helper methods for generating RGBs and scaler products using 2d or 3d
-(time series) numpy ndarrays for the appropriate bands.
+ABI L1b recipes from specific sources
 """
 import numpy as np
+from krttdkit.operate import Recipe
 
 def cimss_truecolor(band1:np.ndarray, band2:np.ndarray, band3:np.ndarray):
     """
@@ -35,14 +35,11 @@ def cimss_truecolor(band1:np.ndarray, band2:np.ndarray, band3:np.ndarray):
     R = np.power(R, 1/gamma)
     G = np.power(G, 1/gamma)
 
-    #print(type(B), type(R), type(G))
-    #print(B.shape, R.shape, G.shape)
-
     # Get "True color" green according to CIMSS recipe, and collect the RGB
     # (ref: CIMSS Natural True Color Quick Guide)
     G_TC = np.clip(.45*R+.1*G+.45*B, 0, 1)
 
-    return (R, G_TC, B)
+    return np.dstack((R, G_TC, B))
 
 def airmass(f6p2um:np.ndarray, f7p3um:np.ndarray, f9p6um:np.ndarray,
             f10p3um:np.ndarray):
@@ -68,7 +65,7 @@ def airmass(f6p2um:np.ndarray, f7p3um:np.ndarray, f9p6um:np.ndarray,
     B = (B--64.65)/(-29.25--64.65)
     # Invert Blue channel
     B = 1-B
-    return (R, G, B)
+    return np.dstack((R, G, B))
 
 def ndsii1(red:np.ndarray, swir:np.ndarray):
     """
@@ -95,10 +92,13 @@ def day_cloud_phase(band2:np.ndarray, band4:np.ndarray, band5:np.ndarray):
     """
     https://cimss.ssec.wisc.edu/training/QuickGuides/QuickGuide_GOESR_Day_Cloud_Type.pdf
     """
-    R = np.power(band4, 1/1) # Originally .66
-    G = np.power(band2, 1/2) # Originally 1
-    B = np.power(band5, 1/2) # Originally 1
-    return (R, G, B)
+    #R = np.power(band4, 1/1) # Originally .66
+    #G = np.power(band2, 1/2) # Originally 1
+    #B = np.power(band5, 1/2) # Originally 1
+    R = _gamma_norm(band4, gamma=.66)
+    G = _gamma_norm(band2, gamma=1)
+    B = _gamma_norm(band5, gamma=1)
+    return np.dstack((R, G, B))
 
 
 def diffwv(f6p2um:np.ndarray, f7p3um:np.ndarray):
@@ -108,7 +108,6 @@ def diffwv(f6p2um:np.ndarray, f7p3um:np.ndarray):
 
     Expects 6.2um and 7.3um band ndarrays in Kelvin brightness temps
     """
-    print(f6p2um, f7p3um)
     G = f7p3um-273.15 # Low level water vapor
     B = f6p2um-273.15 # Upper level water vapor
     R = G-B           # Vertical water vapor difference
@@ -122,7 +121,7 @@ def diffwv(f6p2um:np.ndarray, f7p3um:np.ndarray):
     B = 1-_gamma_norm(B, floor=-64.65, cap=-29.25,  gamma=.4)
 
     # Gamma correction
-    return (R, G, B)
+    return np.dstack((R, G, B))
 
 def ntmicro(f3p9um:np.ndarray, f10p4um:np.ndarray, f12p4um:np.ndarray):
     """
@@ -139,7 +138,7 @@ def ntmicro(f3p9um:np.ndarray, f10p4um:np.ndarray, f12p4um:np.ndarray):
     G = _gamma_norm(G, floor=-3.1, cap=5.2)
     B = _gamma_norm(B, floor=-29.6, cap=19.5)
 
-    return (R, G, B)
+    return np.dstack((R, G, B))
 
 def viirs_cloud_type(m9:np.ndarray, m5:np.ndarray, m10:np.ndarray):
     """
@@ -158,7 +157,6 @@ def viirs_cloud_phase(m10:np.ndarray, m11:np.ndarray, m3:np.ndarray):
     R = m10/.5
     G = m11/.5
     return (R, G, m3)
-
 
 def watervapor(f6p2um:np.ndarray, f7p3um:np.ndarray, f10p3um:np.ndarray):
     """
@@ -183,4 +181,39 @@ def watervapor(f6p2um:np.ndarray, f7p3um:np.ndarray, f10p3um:np.ndarray):
     #B = 1-B
     #G = 1-G
     #R = 1-R
-    return (R, G, B)
+    return np.dstack((R, G, B))
+
+abi_recipes = {
+        "truecolor":Recipe(
+            args=("1-ref","2-ref","3-ref"),
+            func=cimss_truecolor,
+            name="CIMSS Truecolor",
+            ref="https://www.star.nesdis.noaa.gov/GOES/documents/" + \
+                    "ABIQuickGuide_CIMSSRGB_v2.pdf"
+            ),
+        "airmass":Recipe(
+            args=("8-tb","10-tb","12-tb","13-tb"),
+            func=airmass,
+            name="SPoRT Airmass RGB"
+            ),
+        "dcp":Recipe(
+            args=("2-ref","4-ref","5-ref"),
+            func=day_cloud_phase,
+            name="CIMSS Day cloud phase RGB"
+            ),
+        "diffwv":Recipe(
+            args=("8-tb","10-tb"),
+            func=diffwv,
+            name="Differential water vapor RGB"
+            ),
+        "ntmicro":Recipe(
+            args=("7-tb","13-tb","15-tb"),
+            func=ntmicro,
+            name="SPoRT night-time microphysics"
+            ),
+        "wv":Recipe(
+            args=("8-tb", "10-tb", "13-tb"),
+            func=watervapor,
+            name="CIRA water vapor"
+            )
+        }

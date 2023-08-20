@@ -393,7 +393,7 @@ def histogram_match(X:np.ndarray, Y:np.ndarray, nbins:int):
     return matched
 
 
-def histogram_equalize(X:np.ndarray, nbins:int,
+def histogram_equalize(X:np.ndarray, nbins:int=512,
                        cumulative_histogram:np.array=None, debug=False):
     """
     Get a histogram-equalized version of X

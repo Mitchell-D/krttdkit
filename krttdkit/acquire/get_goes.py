@@ -242,6 +242,35 @@ class GetGOES:
         print(TF.BLUE(f"{prod_str:<16}", bright=True)+desc)
         return desc
 
+def parse_goes_path(nc_file:Path):
+    """
+    Parses a NOAA-standard ABI file path, formatted like:
+    OR_ABI-L1b-RadM1-M6C02_G16_s20232271841252_e20232271841309_c20232271841341.nc
+
+    This method is meant to be generalized for any GOES instrument, so label
+    sub-fields like ABI-L1b-RadM1-M6C02 aren't parsed.
+
+    :@param nc_file: Path to a NOAA ABI file following the above format.
+
+    :@return: 2-tuple like (band_string, file) where band_string is an ABI band
+        like '02', and file is a GOES_File with all the appropriate fields.
+    """
+    _,label,satellite,stime,_,_ = nc_file.name.split("_")
+    sensor,level,scan = label.split("-")[:3]
+    return GOES_File(
+            product=GOES_Product(
+                # "G16" -> "16"
+                satellite=satellite[-2:],
+                sensor=sensor,
+                level=level,
+                scan=scan
+                ),
+            # "s20232271841252" -> datetime
+            stime=datetime.strptime(stime, "s%Y%j%H%M%S%f"),
+            label=label,
+            path=nc_file.as_posix()
+            )
+
 def list_config(satellite:str="16", goesapi:GetGOES=None):
     """
     """

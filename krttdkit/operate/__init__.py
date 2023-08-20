@@ -15,3 +15,4 @@ tasks like snapping a point to a coordinate grid, calculating panoramic
 distortion, and (eventually) doing interpolation of data onto a new coordinate
 grid.
 """
+from .Recipe import Recipe

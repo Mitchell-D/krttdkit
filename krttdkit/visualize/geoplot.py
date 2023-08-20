@@ -309,7 +309,7 @@ def generate_raw_image(RGB:np.ndarray, image_path:Path, gif:bool=False,
     if not gif:
         imageio.imwrite(image_path.as_posix(), RGB)
         print(f"Generated image at {image_path.as_posix()}")
-        return
+        return image_path
     RGB = np.moveaxis(RGB, 2, 0)
     '''
     if not RGB.dtype==np.uint8:
@@ -318,6 +318,7 @@ def generate_raw_image(RGB:np.ndarray, image_path:Path, gif:bool=False,
     '''
     imageio.mimwrite(uri=image_path, ims=RGB, format=".gif", fps=fps)
     print(f"Generated gif at {image_path.as_posix()}")
+    return image_path
 
 def geo_rgb_plot(R:np.ndarray, G:np.ndarray, B:np.ndarray, fig_path:Path,
                  xticks:np.ndarray=None, yticks:np.ndarray=None,

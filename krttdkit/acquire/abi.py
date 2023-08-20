@@ -7,8 +7,103 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
-from krttdkit.acquire.get_goes import GetGOES, GOES_Product, GOES_File
+from krttdkit.acquire import get_goes as gg
+from krttdkit.acquire.get_goes import parse_goes_path
 from krttdkit.products import GeosGeom
+
+"""
+Dictionary mapping ABI band numbers to critical information about them
+"""
+bands={
+        1:{"ctr_wl":0.47,
+           "name":"Visible Blue",
+           "default_res":1,
+           },
+        2:{"ctr_wl":0.64,
+           "name":"Visible Red 0",
+           "default_res":.5,
+           },
+        3:{"ctr_wl":0.86,
+           "name":"Near-Infrared Veggie",
+           "default_res":1,
+           },
+        4:{"ctr_wl":1.37,
+           "name":"Near-Infrared Cirrus",
+           "default_res":2,
+           },
+        5:{"ctr_wl":1.6,
+           "name":"Near-Infrared Snow/Ice",
+           "default_res":1,
+           },
+        6:{"ctr_wl":2.2,
+           "name":"Near-Infrared Cloud particle size",
+           "default_res":2,
+           },
+        7:{"ctr_wl":3.9,
+           "name":"Infrared Shortwave window",
+           "default_res":2,
+           },
+        8:{"ctr_wl":6.2,
+           "name":"Infrared Upper-level water vapor",
+           "default_res":2,
+           },
+        9:{"ctr_wl":6.9,
+           "name":"Infrared Midlevel water vapor",
+           "default_res":2,
+           },
+        10:{"ctr_wl":7.3,
+            "name":"Infrared Lower-level water vapor",
+            "default_res":2,
+            },
+        11:{"ctr_wl":8.4,
+            "name":"Infrared Cloud-top phase",
+            "default_res":2,
+            },
+        12:{"ctr_wl":9.6,
+            "name":"Infrared Ozone",
+            "default_res":2,
+            },
+        13:{"ctr_wl":10.3,
+            "name":"Infrared 'Clean' longwave window",
+            "default_res":2,
+            },
+        14:{"ctr_wl":11.2,
+            "name":"Infrared Longwave window",
+            "default_res":2,
+            },
+        15:{"ctr_wl":12.3,
+            "name":"Infrared 'Dirty' longwave window",
+            "default_res":2,
+            },
+        16:{"ctr_wl":13.3,
+            "name":"Infrared CO2 longwave",
+            "default_res":2,
+            },
+        }
+
+def default_band_resolution(band):
+    """
+    Provides the default NADIR resolution of an ABI band.
+    """
+    return next(res for res,bands in resolutions.items()
+                if valid_band(band) in bands)
+
+def valid_band(band):
+    """
+    Band validator that checks if the parameter is an integer between 1 and
+    16 inclusively. Returns the integer band number if valid, or raises an
+    error otherwise.
+
+    :@param band: String or integer that must be validated as a band.
+    :@return: Integer valid band if it meets the criteria above.
+    """
+    if not str(band).isnumeric():
+        raise ValueError(
+                f"Band must be an integer from 1 to 16 (not {band})")
+    band = int(band)
+    if not 0<band<17:
+        raise ValueError(f"Band must be an integer in [0,16]; not {band}")
+    return band
 
 def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
                  start_time:datetime, end_time:datetime=None, replace=False):
@@ -30,39 +125,41 @@ def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
     :@param start_time: Inclusive initial time of the time range to search if
         end_time is defined. Otherwise if end_time is None, start_time stands
         for the target time of returned files.
-    :@param end_time:
+    :@param end_time: If end_time isn't None, it defines the exclusive upper
+        bound of a time range in which to search for files.
 
-    :@return: Nested lists of GOES_File objects corresponding to netCDF files
-        downloaded to data_dir. The outer list indexes the band in the same
-        order as provided band labels, and the inner lists contain GOES_File
-        objects for that band, in order of increasing stime.
+    :@return: Nested lists of downloaded GOES netCDF file locations. Each
+        first-list entry corresponds to a unique timestep, which contains
+        one or more bands' worth of files.
     """
     assert str(satellite) in tuple(map(str, range(16,19)))
     # Accept "RadM" style notation for consistency with product listing
     assert scan in ("C", "F", "M1", "M2")
     assert all(int(b) in range(1,17) for b in bands)
     search_str = f"Rad{scan[0]}"
-    goesapi = GetGOES()
-    prod = GOES_Product(satellite, "ABI", "L1b", search_str)
+    goesapi = gg.GetGOES()
+    prod = gg.GOES_Product(satellite, "ABI", "L1b", search_str)
     if not end_time is None:
-        files = goesapi.list_range(prod, start_time, end_time)
+        files = goesapi.search_range(prod, start_time, end_time)
     else:
         files = goesapi.get_closest_to_time(prod, start_time)
 
     # If mesoscale scan requested, narrow down results to the requested view.
     if scan[0]=="M":
         files = [f for f in files if f.label.split("-")[2][-2:]==scan]
-    paths_by_band = []
     files.sort(key=lambda f: f.stime)
-    for b in bands:
-        band_str = f"C{int(b):02}"
+    utimes = sorted(list(set(f.stime for f in files)))
+    paths_by_timestep = []
+    for t in utimes:
         band_files = [
                 goesapi.download(f, data_dir, replace)
                 for f in files
-                if band_str in f.label.split("-")[-1]
+                if any(f"C{int(b):02}" in f.label.split("-")[-1]
+                       for b in bands)
+                and f.stime == t
                 ]
-        paths_by_band.append(band_files)
-    return paths_by_band
+        paths_by_timestep.append(band_files)
+    return paths_by_timestep
 
 def get_abi_l1b_latlon(nc_file:Path):
     """
@@ -143,7 +240,10 @@ def get_abi_l1b_radiance(nc_file:Path, get_mask:bool=False, _ds=None):
     ds = _ds if _ds else nc.Dataset(nc_file.as_posix())
     if not get_mask:
         return ds["Rad"][:].data
-    return ds["Rad"][:].data, np.ma.getmask(ds["Rad"][:])
+    data = np.copy(ds["Rad"][:].data)
+    mask = np.ma.getmask(ds["Rad"][:])
+    # For some reason, nan values occasionally still pass the mask
+    return data, mask|np.isnan(data)
 
 def get_abi_l1b_ref(nc_file:Path, get_mask:bool=False):
     """
@@ -203,53 +303,13 @@ def rad_to_Tb(rads:np.array, fk1:np.array, fk2:np.array,
     """
     return (fk2/np.log(fk1/rads+1) - bc1) / bc2
 
-def parse_goes_path(nc_file:Path):
-    """
-    Parses a NOAA-standard ABI file path, formatted like:
-    OR_ABI-L1b-RadM1-M6C02_G16_s20232271841252_e20232271841309_c20232271841341.nc
-
-    This method is meant to be generalized for any GOES instrument, so label
-    sub-fields like ABI-L1b-RadM1-M6C02 aren't parsed.
-
-    :@param nc_file: Path to a NOAA ABI file following the above format.
-
-    :@return: 2-tuple like (band_string, file) where band_string is an ABI band
-        like '02', and file is a GOES_File with all the appropriate fields.
-    """
-    _,label,satellite,stime,_,_ = nc_file.name.split("_")
-    sensor,level,scan = label.split("-")[:3]
-    return GOES_File(
-            product=GOES_Product(
-                # "G16" -> "16"
-                satellite=satellite[-2:],
-                sensor=sensor,
-                level=level,
-                scan=scan
-                ),
-            # "s20232271841252" -> datetime
-            stime=datetime.strptime(stime, "s%Y%j%H%M%S%f"),
-            label=label,
-            path=nc_file.as_posix()
-            )
+def is_reflective(band:int):
+    """ Returns True if the provided ABI band is reflective """
+    # Band 7 (3.9um) doesn't have a kappa0 coefficient, for some reason
+    return int(band) < 7
+def is_thermal(band:int):
+    """ Returns True if the provided ABI band is a thermal band """
+    return int(band) >= 7
 
 if __name__=="__main__":
-    data_dir = Path("/home/krttd/tools/pybin/krttdkit/tests/buffer/abi")
-    abi_paths = [p for p in data_dir.iterdir() if "ABI-L1b" in p.name]
-    #for p in abi_paths:
-    #get_abi_l1b(abi_paths[0])
-    start = datetime(2023,8,15,0,30)
-    end = datetime(2023,8,15,1,0)
-    bands = [2,5,14]
-
-    #bands = download_l1b(data_dir, 16, "M2", [2, 5, 14], start, end)
-    band_paths = download_l1b(data_dir, 16, "C", bands, start, end)
-    for i in range(len(bands)):
-        is_reflective = bands[i]<=7
-        is_thermal = bands[i]>=7
-        for path in band_paths[i]:
-            if is_reflective:
-                ref, mask = get_abi_l1b_ref(path, get_mask=True)
-                print(np.min(ref),np.max(ref))
-            if is_thermal:
-                tb, mask = get_abi_l1b_Tb(path, get_mask=True)
-                print(np.min(tb),np.max(tb))
+    pass

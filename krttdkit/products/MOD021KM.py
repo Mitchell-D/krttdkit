@@ -36,9 +36,9 @@ from krttdkit.acquire import laads, modis
 from krttdkit.visualize import guitools as gt
 from krttdkit.visualize import geoplot as gp
 from krttdkit.visualize import TextFormat as TFmt
-from krttdkit.operate import classify, geo_helpers
+from krttdkit.operate import classify, geo_helpers, Recipe
 from krttdkit.operate import enhance as enh
-from krttdkit.products import Recipe, PixelCat
+from krttdkit.products import PixelCat
 
 class MOD021KM:
     """
