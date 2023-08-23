@@ -6,6 +6,7 @@ possible.
 """
 from .FireDetector import FireDetector
 from .FeatureGrid import FeatureGrid
+from .TimeGrid import TimeGrid
 from .GeosGeom import GeosGeom
 from .MOD021KM import MOD021KM
 from .PixelCat import PixelCat

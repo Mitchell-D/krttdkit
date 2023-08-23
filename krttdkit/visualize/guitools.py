@@ -137,7 +137,7 @@ def get_category_series(X:np.ndarray, cat_count:int, category_names:list=None,
     return cats
 
 def get_category(X:np.ndarray, fill_color:tuple=(0,255,255),
-                 show_pool:bool=True, debug=False):
+                 show_pool:bool=False, debug=False):
     """
     Launch a GUI window for the user to choose pixels on an image that belong
     to a category, and return a list of array indeces corresponding to their
@@ -231,9 +231,6 @@ def trackbar_select(X:np.ndarray, func, label="", resolution:int=256,
     cv.namedWindow(wname)
     cv.createTrackbar(label, wname, init_val, resolution-1,
                       lambda v: callback(v))
-    #Xnew = callback(init_val)
-    #cv.imshow("catselect", Xnew)
-
     while True:
         if cv.waitKey(1) & 0xFF == ord("q"):
             cv.destroyAllWindows()
@@ -299,16 +296,16 @@ def show_pixel_pool(pixels:np.ndarray, debug=False):
     pool = np.dstack([
         np.reshape(pixels[:,i], (side_length, side_length))
         for i in range(3) ])
-    cv.namedWindow("pixel pool")
+    wname = "pixel pool"
+    cv.namedWindow(wname)
     if debug:
         print(f"\033[1mDisplaying selected pixel colors\033[0m")
     print("\033[1m\033[91mPress 'q' key to exit\033[0m")
     while True:
-        cv.imshow('pixel pool', pool)
+        cv.imshow(wname, pool)
         if cv.waitKey(1) & 0xFF == ord("q"):
+            cv.destroyAllWindows()
             break
-
-    cv.destroyAllWindows()
 
 def label_at_index(X:np.ndarray, location:tuple, text:str=None, size:int=11,
                    text_offset:tuple=None, color:tuple=(0,0,255),
