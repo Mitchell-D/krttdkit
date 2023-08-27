@@ -260,12 +260,36 @@ def region_select(X:np.ndarray, show_selection:bool=False, debug=False):
 
     return ((y,y+h), (x,x+w))
 
-def quick_render(X:np.ndarray):
+def animate(frames, fps=8, debug=False):
+    """
+    :@param frames: iterable (or generator) of (M,N,3) arrays to write into
+        an RGB video
+    :@param outfile: Video file to export to; Use an avi, mov, or mp4.
+        Defaults to an mp4 codec but you can probably find other ones.
+    :@param fps: Frames per second of output video
+    :@param codec: fourcc video writer codec (defaults to mp4)
+    """
+    wname = "ani frame"
+    ani_frame = cv.namedWindow(wname)
+    i=0
+    for X in frames:
+        i+=1
+        if debug: print(f"Showing frame {i}")
+        cv.imshow(wname, enhance.norm_to_uint(X,256,np.uint8))
+        if cv.waitKey(int(1000/fps)) & 0xFF == ord('q'):
+            break
+    cv.destroyAllWindows()
+
+def quick_render(X:np.ndarray, colorize=False):
     """
     Method for rapidly rendering a 2d or 3d array as a sanity check.
     """
+    X = enhance.linear_gamma_stretch(X)
     if len(X.shape) == 2:
-        X = np.dstack((X, X, X))
+        if not colorize:
+            X = np.dstack((X, X, X))
+        else:
+            X = scal_to_rgb(X)
     elif len(X.shape) == 3:
         assert X.shape[2]==3
     cv.namedWindow("quick render")

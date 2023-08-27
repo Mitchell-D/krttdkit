@@ -53,10 +53,10 @@ if __name__=="__main__":
         pkl_path=data_dir.joinpath("abil1b_tmp.pkl"),
         #target_time=datetime(2023,8,14,22,30),
         target_time=datetime(2023, 5, 20, 18),
-        recipe="norm256 airmass",
+        recipe="lingamma wv",
         satellite="16",
         scan="C",
-        resolution=1, # km
+        resolution=2, # km
         target_latlon=(34.7, -86.6),
         #target_latlon=(40, -90),
         dx_px=640*2,
