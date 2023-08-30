@@ -6,6 +6,7 @@ from datetime import timedelta
 import numpy as np
 from krttdkit.products import ABIL1b, FeatureGrid
 from krttdkit.visualize import guitools as gt
+from krttdkit.visualize import geoplot as gp
 from krttdkit.operate.geo_helpers import get_geo_range
 
 def next_abi(data_dir:Path, pkl_path:Path, target_time:datetime=None,
@@ -81,6 +82,9 @@ def parse_args():
     parser.add_argument("--res", dest="res", type=str,
                         help="Scan resolution in pixels.",
                         default="2")
+    parser.add_argument("--save", dest="save", type=str,
+                        help="File path of image to save",
+                        default=None)
     raw_args = parser.parse_args()
 
     if not raw_args.hour is None:
@@ -121,11 +125,14 @@ def parse_args():
     assert scan.upper() in ("M1", "M2", "C", "F")
     res = raw_args.res
     assert res in (".5", "1", "2")
-    return (sat,target_time,grid_center,grid_aspect,recipe,scan,res)
+    save_path = Path(raw_args.save) if raw_args.save else None
+    if save_path:
+        assert save_path.parent.exists()
+    return (sat,target_time,grid_center,grid_aspect,recipe,scan,res,save_path)
 
 if __name__=="__main__":
     data_dir=Path("/tmp")
-    sat,target_time,grid_center,grid_aspect,recipe,scan,res = parse_args()
+    sat,target_time,grid_center,grid_aspect,recipe,scan,res,save = parse_args()
     fg = next_abi(
         data_dir=data_dir,
         pkl_path=data_dir.joinpath("abil1b_tmp.pkl"),
@@ -138,3 +145,5 @@ if __name__=="__main__":
         dx_px=grid_aspect[0],
         dy_px=grid_aspect[1],
         )
+    if save:
+        gp.generate_raw_image(fg.data(recipe), save)

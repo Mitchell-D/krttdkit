@@ -27,14 +27,10 @@ import shutil
 import numpy as np
 
 out_labels = {
-        "srad":"Spectral radiance (in W/m^2/um/sr) for each phi/uzen combo",
         "rad":"Radiance (in W/m^2/sr) for each phi/uzen combo",
+        "srad":"Spectral radiance (in W/m^2/um/sr)",
         "flux":"Flux (in W/m^2)",
         "sflux":"Spectral flux (in W/m^2/um)",
-        "srad":"Spectral radiance (in W/m^2/um/sr)",
-        "wl":"Wavelength (in um). Float values used as a coordinate",
-        "z":"Altitude (in km)",
-        "uzen":"User zenith angles in degrees",
         "flux_labels":"String labels for flux values",
         "sflux_labels":"String labels for spectral flux values",
         "srad_labels":"String labels for spectral radiance values",
