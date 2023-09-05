@@ -286,6 +286,87 @@ def array_stat(X:np.ndarray):
             "range":np.ptp(X),
             }
 
+def get_nd_hist(arrays:list, bin_counts=256, ranges:list=None):
+    """
+    MASK values with np.nan in order to exclude them from the counting
+
+    :@param arrays: List of arbitrary-dimensional numpy arrays with uniform
+        size. The order of these arrays corresponds to the order of the
+        dimensions in the returned array of counts.
+    :@param bin_counts: Integer number of bins to use for all provided arrays
+        (on a per-axis scale) or list of integer bin counts for each array.
+    :@param ranges: If ranges is defined, it must be a list of 2-tuple float
+        value ranges like (min, max). This sets the boundaries for
+        discretization in coordinate units, and thus sets the min/max values
+        of the returned array, along with the mins if provided.
+        Defaults to data range.
+    :@param mins: If mins is defined, it must be a list of numbers for the
+        minimum recognized value in the discretization. This sets the
+        boundaries for discretization in coordinate units, and thus determines
+        the min/max values of the returned array, along with any ranges.
+        Defaults to data minimm
+
+    :@return: 2-tuple like (H, coords) such that H and coords are arrays.
+
+        H is a N-dimensional integer array of counts for each of the N provided
+        arrays. Each dimension represents a different input array's histogram,
+        and indeces of a dimension mark brightness values for that array.
+
+        You can sum along axes in order to derive subsequent histograms.
+
+        The 'coords' array is a length N list of numpy arrays. These arrays
+        associate the corresponding dimension in H with actual brightness
+        values in data coordinates. They may have different sizes since
+        different bin_counts can be specified for each dimension.
+    """
+    s0 = arrays[0].size
+    assert all(a.size==s0 for a in arrays)
+    if type(bin_counts) is int:
+        bin_counts = np.asarray([256 for i in range(len(arrays))])
+    else:
+        assert all(type(c)==int for c in bin_counts)
+        assert len(bin_counts) == len(arrays)
+        bin_counts = np.asarray(bin_counts)
+    # Get a (P,F) array of P unmasked pixel values with F features
+    X = np.stack(tuple(map(np.ravel, arrays))).T
+    valid = np.logical_not(np.any(np.ma.getmask(np.ma.masked_invalid(X)),
+                                  axis=1))
+    # Normalize the unmasked values
+    Y = X[valid]
+    '''
+    if not mins is None:
+        assert len(mins)==len(arrays)
+        mins = np.asarray(mins)
+    else:
+        mins = np.amin(Y, axis=0)
+    '''
+    if not ranges is None:
+        assert len(ranges)==len(arrays)
+        assert all(type(r) is tuple and len(r) is 2 for r in ranges)
+        mins, maxes = map(np.asarray, zip(*ranges))
+        ranges = maxes-mins
+    else:
+        mins = np.min(Y, axis=0)
+        ranges = np.amax(Y, axis=0)-mins
+
+    # Y is normalized to [0,1] independently in each dimension
+    Y = (Y-np.broadcast_to(mins, Y.shape))/np.broadcast_to(ranges, Y.shape)
+    Y = np.clip(Y,0,1)
+    # Scale the float to the desired number of bins
+    Y *= np.broadcast_to(bin_counts, Y.shape)-1
+    # Round the bins to the nearest integer to discretize
+    Y = np.ceil(np.clip(Y,0,None)).astype(np.uint)
+    # discretize Y to the appropriate number of bins
+    H = np.zeros(bin_counts)
+    for i in range(Y.shape[0]):
+        H[*tuple(Y[i])] += 1
+    # Coordinates are the minimum value in each bin
+    coords = [np.array([ranges[i]*j/bin_counts[i]+mins[i]
+                        for j in range(bin_counts[i])])
+              for i in range(len(bin_counts))]
+    return H, coords
+
+# old version, pending removal
 def get_heatmap(X:np.ndarray, nbins, debug=False):
     """
     Note that the returned heat map is indexed from the 'top left' by
@@ -306,6 +387,7 @@ def get_heatmap(X:np.ndarray, nbins, debug=False):
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
             H[ X[i,j,0], X[i,j,1]] += 1
+    print("DEPRECATION WARNING: Use updated and more general get_heatmap_nd()")
     return H
 
 

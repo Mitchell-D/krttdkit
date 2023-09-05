@@ -34,9 +34,11 @@ def mlc(X:np.ndarray, categories:dict, thresh:float=None):
     """
     Do maximum likelihood classification using the discriminant function
 
+    If you're getting linear algebra errors, try providing more pixels.
+
     :@param X: (M,N,b) ndarray with b independent variables
-    :@param X: Dictionary mapping category labels to a set of 2-tuple pixel
-            indeces of pixels in X belonging to that class.
+    :@param categories: Dictionary mapping category labels to a set of 2-tuple
+            pixel indeces of pixels in X belonging to that class.
     :@param thresh: Pixel confidence threshold in percent [0,1] Pixels
             classified with less confidence than the threshold will be
             added to a new "uncertain" category.

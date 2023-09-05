@@ -10,7 +10,7 @@ import krttdkit.visualize.guitools as gt
 
 def colorize(X:np.ndarray):
     assert len(X.shape)==2
-    return gt.scal_to_rgb(enh.linear_gamma_stretch(X))
+    return gt.scal_to_rgb(enh.linear_gamma_stretch(X), hue_range=(0,.5))
 
 def selectgamma(X:np.ndarray, offset=-2.5, scale=5):
     print(f"Gamma range: [{offset}, {offset+scale}]")
@@ -30,7 +30,7 @@ def selectgamma(X:np.ndarray, offset=-2.5, scale=5):
 # todo: find way to pass runtime parameters to transforms, probably
 # by abstracting them into a class like Recipe
 transforms = {
-        "lingamma": lambda X: enh.linear_gamma_stretch(X),
+        "norm1": lambda X: enh.linear_gamma_stretch(X),
         "histeq": lambda X: enh.histogram_equalize(
             X, nbins=256)[0].astype(np.uint8),
         "norm256": lambda X: enh.norm_to_uint(X, 256, np.uint8),

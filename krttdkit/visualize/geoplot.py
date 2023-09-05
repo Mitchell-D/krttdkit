@@ -34,6 +34,7 @@ plot_spec_default = {
     "title_size":14,
     "label_size":12,
     "gridline_color":"gray",
+    "data_colors":None,
     "fig_size":(16,9),
     "dpi":800,
     "borders":True,
@@ -43,8 +44,16 @@ plot_spec_default = {
     "grid":False,
     "legend_font_size":8,
     "legend_ncols":1,
+    "x_ticks":None,
+    "y_ticks":None,
     "marker":"o",
     "line_style":":",
+    # imshow_extent: 4-tuple (left, right, bottom, top) data coordinate values
+    "imshow_extent":None,
+    # imshow_norm: string or Normalize object for data scaling
+    "imshow_norm":None,
+    # Float aspect ratio for imshow axes
+    "imshow_aspect":None,
     "alpha":.5,
     "xrange":None,
     "yrange":None,
@@ -131,6 +140,7 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
     for cat in cat_labels:
         assert len(data_dict[cat]["means"]) == band_count
         assert len(data_dict[cat]["stdevs"]) == band_count
+
     # Merge provided plot_spec with un-provided default values
     old_ps = plot_spec_default
     old_ps.update(plot_spec)
@@ -176,23 +186,44 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
     if fig_path:
         fig.savefig(fig_path.as_posix())
 
-def plot_heatmap(heatmap:np.ndarray, fig_path:Path=None, vmax=None, show=True,
+def plot_heatmap(heatmap:np.ndarray, fig_path:Path=None, show=True,
                  plot_spec:dict={}):
-    """ """
+    """
+    Plot an integer heatmap, with [0,0] indexing the lower left corner
+    """
     # Merge provided plot_spec with un-provided default values
     old_ps = plot_spec_default
     old_ps.update(plot_spec)
     plot_spec = old_ps
 
     fig, ax = plt.subplots()
-    im = ax.imshow(heatmap, cmap=plot_spec.get("cmap"), vmax=vmax)
+    im = ax.imshow(
+            heatmap,
+            cmap=plot_spec.get("cmap"),
+            vmax=plot_spec.get("vmax"),
+            extent=plot_spec.get("imshow_extent"),
+            norm=plot_spec.get("imshow_norm"),
+            origin="lower",
+            aspect=plot_spec.get("imshow_aspect")
+            )
     cbar = fig.colorbar(
             im, orientation=plot_spec.get("cb_orient"),
-            label=plot_spec.get("cb_label"), shrink=plot_spec.get("cb_size"))
+            label=plot_spec.get("cb_label"), shrink=plot_spec.get("cb_size")
+            )
+    if plot_spec["imshow_extent"]:
+        extent = plot_spec.get("imshow_extent")
+        assert len(extent)==4
+        plt.xlim(extent[:2])
+        plt.ylim(extent[2:])
+
     #fig.suptitle(plot_spec.get("title"))
     ax.set_title(plot_spec.get("title"))
     ax.set_xlabel(plot_spec.get("xlabel"))
     ax.set_ylabel(plot_spec.get("ylabel"))
+    if plot_spec["x_ticks"]:
+        ax.set_xticks(plot_spec.get("x_ticks"))
+    if plot_spec["y_ticks"]:
+        ax.set_xticks(plot_spec.get("y_ticks"))
     if show:
         plt.show()
     if not fig_path is None:
@@ -270,6 +301,34 @@ def plot_lines(domain, ylines:list, image_path:Path=None,
         print(f"Saving figure to {image_path}")
         fig.savefig(image_path, bbox_inches="tight", dpi=plot_spec.get("dpi"))
 
+def basic_bars(labels, values, xcoords:list=None, err=None, plot_spec:dict={}):
+    """
+    Make and show a basic bar plot with the provided plot_spec specification.
+
+    :@param labels: list of labels for the x-axis corresponding to each bar.
+    :@param values: list of height values for each corresponding bar. There
+        must be the same number of values as labels
+    :@param xcoords: Optionally provide relative X coordinates for each bar.
+        If no xcoords are provided, they will be spaced uniformly.
+    :@param err: Optional list of error bar widths in y-coordinate space
+    """
+    old_ps = plot_spec_default
+    old_ps.update(plot_spec)
+    plot_spec = old_ps
+
+    print(labels, values)
+    assert len(labels)==len(values)
+    if xcoords is None:
+        xcoords = list(range(len(labels)))
+        bar = plt.bar(labels, values, yerr=err,
+                      color=plot_spec.get("data_color"))
+    else:
+        bar = plt.bar(xcoords, values, label=labels, yerr=err,
+                      color=plot_spec.get("data_color"))
+    plt.title(plot_spec.get("title"))
+    plt.xlabel(plot_spec.get("xlabel"))
+    plt.ylabel(plot_spec.get("ylabel"))
+    plt.show()
 
 def basic_plot(x, y, image_path:Path, plot_spec:dict={}, scatter:bool=False,
                show:bool=False):
