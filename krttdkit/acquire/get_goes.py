@@ -225,22 +225,25 @@ class GetGOES:
         closest = [files[i] for i in range(len(files)) if diffs[i]==min(diffs)]
         return closest
 
-    def describe(self, product:GOES_Product):
-        """
-        Pretty-print product descriptions if available in goes_info.py,
-        returning None in every case. If you need the string version of
-        descriptions, import the goes_info module directly instead of using
-        an instance of the GetGOES class.
+def describe(product:GOES_Product, do_print=False):
+    """
+    Pretty-print product descriptions if available in goes_info.py,
+    returning None in every case. If you need the string version of
+    descriptions, import the goes_info module directly instead of using
+    an instance of the GetGOES class.
 
-        :@param product: valid product to describe
-        """
-        prod_str = "-".join(product[1:])
-        if prod_str not in goes_descriptions.keys():
-            desc = TF.RED(f"(Missing description)", bright=True)
-        else:
-            desc = TF.WHITE(goes_descriptions[prod_str], bright=True)
-        print(TF.BLUE(f"{prod_str:<16}", bright=True)+desc)
-        return desc
+    :@param product: valid product to describe
+    """
+    prod_str = "-".join(product[1:])
+    if prod_str not in goes_descriptions.keys():
+        desc = ""
+        print_str = TF.RED(f"(Missing description)", bright=True)
+    else:
+        desc = goes_descriptions[prod_str]
+        print_str = TF.WHITE(desc, bright=True)
+    if do_print:
+        print(TF.BLUE(f"{prod_str:<16}", bright=True)+print_str)
+    return desc
 
 def parse_goes_path(nc_file:Path):
     """
@@ -271,7 +274,7 @@ def parse_goes_path(nc_file:Path):
             path=nc_file.as_posix()
             )
 
-def list_config(satellite:str="16", goesapi:GetGOES=None):
+def list_config(satellite:str="16", goesapi:GetGOES=None, describe=True):
     """
     """
     goesapi = GetGOES() if goesapi is None else goesapi
@@ -281,7 +284,8 @@ def list_config(satellite:str="16", goesapi:GetGOES=None):
         if p not in  cfg_prods:
             print(TF.RED(p))
         else:
-            print(TF.GREEN(p))
+            print(TF.GREEN(p)+("" if not describe else \
+                    "\t"+goes_descriptions["-".join(p[1:])]))
     print(TF.RED("\nRED ",bright=True) +
           TF.YELLOW("products are available but don't have a description"))
     print(TF.GREEN("GREEN ") +
@@ -328,7 +332,7 @@ def visual_search(query:GOES_Product=None, time:datetime=None,
         TF.YELLOW(f"Printing product descriptions for {query}", bold=True)
         products = goesapi.search_products(**query._asdict())
         for p in products:
-            goesapi.describe(p)
+            goesapi.describe(p, do_print=True)
         return products
     # Otherwise, search for the product within the provided time bounds
     else:

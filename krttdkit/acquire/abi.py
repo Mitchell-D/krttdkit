@@ -81,6 +81,69 @@ bands={
             },
         }
 
+def download_l2_abi(data_dir:Path, product:str, target_time:datetime,
+                    time_window:timedelta=None, satellite="16", replace=False):
+    """
+    Downloads L2 data specified by the product string to data_dir.
+    Only downloads closest file to target_time if timedelta is None,
+    or downloads all files in range described by target_time+time_window
+    if a time window is provided.
+    """
+    goesapi = gg.GetGOES()
+    l2_prod = gg.GOES_Product(satellite, "ABI", "L2", product.upper())
+    if time_window is None:
+        queue = goesapi.get_closest_to_time(
+                product=l2_prod, target_time=target_time)
+    else:
+        queue = goesapi.search_hour(
+                product=l2_prod, init_time=target_time,
+                final_time=target_time+time_window)
+    return [goesapi.download(f, data_dir, replace=False) for f in queue]
+
+def get_l2(data_file:Path, include_latlon=True, include_angles=False):
+    """
+    Parse a supported GOES ABI L2 product file type
+
+    :@param data_file: ABI L2 ABI netCDF file type
+    :@param include_latlon: If True, includes 'lat' and 'lon' features using
+        grids calculated from the geostationary geometry of the satellite.
+    :@param include_angles: If True, includes the north/south and east/west
+        scan angles (from NADIR) in radians for VZA calculations.
+    """
+    file = gg.parse_goes_path(data_file)
+    assert file.product.sensor == "ABI"
+    assert file.product.level == "L2"
+    ds = nc.Dataset(data_file)
+
+    data, labels = [], []
+    # Cloud height
+    if "ACHA" in file.product.scan:
+        data += [ds["HT"][:].data, ds["DQF"][:].data]
+        labels += ["height", "q_acha"]
+    # Clear sky mask
+    elif "ACM" in file.product.scan:
+        data += [ds["BCM"][:], ds["ACM"][:], ds["Cloud_Probabilities"][:].data,
+                 ds["DQF"][:].data]
+        labels += ["cloud_mask", "cloud_class", "cloud_prob", "q_acm"]
+    #Cloud top phase
+    elif "ACTP" in file.product.scan:
+        data += [ds["Phase"][:].data, ds["DQF"][:].data]
+        labels += ["cloud_phase", "q_actp"]
+
+    if include_latlon:
+        labels += ["lat", "lon"]
+        data += list(get_abi_latlon(data_file))
+    if include_angles:
+        labels += ["sa_ew", "sa_ns"]
+        data += list(np.meshgrid(ds["x"][:].data, ds["y"][:].data))
+
+    meta = {
+            "path":file.path,
+            "time":file.stime.strftime("%s"),
+            "desc":gg.describe(file.product),
+            }
+    return (data, labels, meta)
+
 def default_band_resolution(band):
     """
     Provides the default NADIR resolution of an ABI band.
@@ -104,6 +167,7 @@ def valid_band(band):
     if not 0<band<17:
         raise ValueError(f"Band must be an integer in [0,16]; not {band}")
     return band
+
 
 def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
                  start_time:datetime, end_time:datetime=None, replace=False):
@@ -161,6 +225,7 @@ def download_l1b(data_dir:Path, satellite:str, scan:str, bands:list,
         paths_by_timestep.append(band_files)
     return paths_by_timestep
 
+'''
 def get_abi_l1b_latlon(nc_file:Path):
     """
     Uses geometry information
@@ -180,8 +245,9 @@ def get_abi_l1b_latlon(nc_file:Path):
         sweep=proj.sweep_angle_axis,
         )
     return (geom.lats, geom.lons)
+'''
 
-def get_abi_l1b_scanangle(nc_file:Path, _ds=None):
+def get_abi_scanangle(nc_file:Path, _ds=None):
     """
     Extracts north/south and east/west scan angles from the provided
     NOAA-style ABI L1b netCDF file, returning them as uniform 2d grids
@@ -197,7 +263,7 @@ def get_abi_l1b_scanangle(nc_file:Path, _ds=None):
     sa_ew,sa_ns = np.meshgrid(ds["x"][:], ds["y"][:])
     return (sa_ns, sa_ew)
 
-def get_abi_l1b_latlon(nc_file:Path):
+def get_abi_latlon(nc_file:Path):
     """
     Uses geometric projection information stored in the provided NOAA-style
     ABI L1b netCDF file to calculate
@@ -208,7 +274,7 @@ def get_abi_l1b_latlon(nc_file:Path):
         and N horizontal coords
     """
     ds = nc.Dataset(nc_file.as_posix())
-    sa_ns, sa_ew = get_abi_l1b_scanangle(nc_file, _ds=ds)
+    sa_ns, sa_ew = get_abi_scanangle(nc_file, _ds=ds)
     proj = ds["goes_imager_projection"]
     geom = GeosGeom(
         # Nadir longitude

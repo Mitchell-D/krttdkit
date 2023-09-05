@@ -56,7 +56,7 @@ class ABIL1b:
                 start_time=start_time, end_time=end_time, replace=replace)
 
     @staticmethod
-    def from_l1b_files(path_list:list, convert_tb:bool=False,
+    def from_l1b_files(path_list:list, convert_tb:bool=False, keep_rad=True,
                    convert_ref:bool=False, get_latlon:bool=True,
                    get_mask=True, get_scanangle:bool=False, resolution=None,
                    reduce_method=np.max):
@@ -103,6 +103,7 @@ class ABIL1b:
                 else max(resolutions)
         # Provided resolution must be one of the file resolutions
         assert not all(r!=target_res for r in resolutions)
+        radiance = []
         for i in range(len(bands)):
             tmp_info = abi.bands[bands[i]]
             tmp_info.update({
@@ -110,20 +111,30 @@ class ABIL1b:
                 "path":files[i].path,
                 "stime":files[i].stime.strftime("%Y%m%d-%H%M"),
                 })
-            info.append(tmp_info)
 
             # Currently 3.9um has no kappa0 value for reflectance conversion
             # so reflectance and brightness temp are mutually exclusive.
             # Calculate reflectance as a recipe if you want to use your own k0
+            # These are mutually exclusive
             if convert_ref and abi.is_reflective(bands[i]):
                 labels.append(f"{bands[i]}-ref")
                 data.append(abi.get_abi_l1b_ref(Path(files[i].path)))
+                tmp_info["units"] = "Reflectance"
             elif convert_tb and abi.is_thermal(bands[i]):
                 labels.append(f"{bands[i]}-tb")
+                tmp_info["units"] = "Brightness Temperature (K)"
                 data.append(abi.get_abi_l1b_Tb(Path(files[i].path)))
-            else:
-                labels.append(f"{bands[i]}-rad")
-                data.append(abi.get_abi_l1b_radiance(Path(files[i].path)))
+            info.append(tmp_info)
+
+            if keep_rad:
+                # Copy the band information
+                rad_info = abi.bands[bands[i]]
+                rad_info.update({"units":"Radiance (W/m^2/um/sr)"})
+                radiance.append([
+                    f"{bands[i]}-rad",
+                    abi.get_abi_l1b_radiance(Path(files[i].path)),
+                    rad_info,
+                    ])
 
             # Downscale finer resolutions  using reduce_method
             tmp_res = resolutions[i]
@@ -131,24 +142,39 @@ class ABIL1b:
                 tmp_res *= 2
                 data[i] = sk.measure.block_reduce(
                         data[i], (2,2), reduce_method)
+                if keep_rad:
+                    radiance[-1][1] = sk.measure.block_reduce(
+                            radiance[-1][1], (2,2), reduce_method)
             # Upscale coarser resolutions by tiling data.
             while tmp_res>target_res:
                 tmp_res /= 2
                 data[i] = np.repeat(np.repeat(data[i], 2, axis=0), 2, axis=1)
+                if keep_rad:
+                    radiance[-1][1] = np.repeat(np.repeat(
+                        radiance[-1][1], 2, axis=0), 2, axis=1)
+
         if get_latlon or get_scanangle:
             # Get a netCDF with the targeted resolution
             sample = Path(files[resolutions.index(target_res)].path)
             # At least one resolution must be the target resolution.
             if get_latlon:
-                lats, lons = abi.get_abi_l1b_latlon(sample)
+                lats, lons = abi.get_abi_latlon(sample)
                 data += [lats, lons]
                 labels += ["lat", "lon"]
                 info += [{"units":"deg n"}, {"units":"deg e"} ]
             if get_scanangle:
-                ns, ew = abi.get_abi_l1b_scanangle(sample)
+                ns, ew = abi.get_abi_scanangle(sample)
                 data += [ns, ew]
                 labels += ["sa-ns", "sa-ew"]
                 info += [{"units":"radians"}, {"units":"radians"}]
+
+        # If we're keeping radiances, add their data, labels, and info
+        if keep_rad:
+            rad_labels, rad_data, rad_info = map(tuple, zip(*radiance))
+            labels += rad_labels
+            data += rad_data
+            info += rad_info
+
         fg = FeatureGrid(labels, data, info)
         for label, recipe in abi_recipes.items():
             fg.add_recipe(label, recipe)
