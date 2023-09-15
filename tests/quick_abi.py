@@ -108,7 +108,7 @@ def parse_args():
     # If no day argument or hour argument is provided, default to now.
     else:
         if raw_args.day is None:
-            target_time = datetime.utcnow()-timedelta(days=1)
+            target_time = datetime.utcnow()#-timedelta(days=1)
         else:
             target_time = datetime.strptime(raw_args.day, "%Y%m%d")
     grid_center = None

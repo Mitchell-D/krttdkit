@@ -1,5 +1,56 @@
 import numpy as np
 from dataclasses import dataclass
+from datetime import datetime
+import math as m
+
+def sun_angles(time:datetime, lat:np.ndarray, lon:np.ndarray):
+    """
+    Given equal-shaped arrays of latitudes and longitudes, and a UTC time,
+    estimates the solar zenith and azimuth angle at each lat/lon.
+
+    Coefficients from a script written by Angela Strub based on:
+    Iqbal, 1983, An Introduction to Solar Radiation
+
+    :@param time: datetime in UTC
+    :@param lat: Array of latitude values in degrees
+    :@param lon: Array of longitude values in degrees with negative West
+    """
+    # Make sure the lat/lon are uniform arrays
+    lat, lon = map(np.asarray,(lat, lon))
+    assert lat.shape==lon.shape
+    # Get the orbit angle at the current DOY
+    doy = int(time.strftime("%j"))
+    hour = int(time.strftime("%H")) + int(time.strftime("%M"))/60
+    doy_angle = (doy-1)/365*2*m.pi
+    sdec  = 0.396372 - \
+            22.91327 * np.cos(doy_angle) + \
+            4.025430 * np.sin(doy_angle) - \
+            0.387205 * np.cos(2.0*doy_angle) + \
+            0.051967 * np.sin(2.0*doy_angle) - \
+            0.154527 * np.cos(3.0*doy_angle) + \
+            0.084798 * np.sin(3.0*doy_angle)
+    # Solar declination angle in radians
+    sdec = sdec*(m.pi/180)
+    # Correct for solar hour angle
+    sd_correct  = 0.004297 + 0.107029*np.cos(doy_angle) - \
+            1.837877*np.sin(doy_angle) - \
+            0.837378*np.cos(2.0*doy_angle) - \
+            2.342824*np.sin(2.0*doy_angle)
+    # Pixelwise hour angle in radians
+    hr_angle = ((hour - 12.0) * 15.0 + lon + sd_correct) * (m.pi/180)
+    # solar zenith angle in radians
+    sza = np.arccos(
+        np.sin(np.deg2rad(lat)) * np.sin(sdec) + \
+                np.cos(np.deg2rad(lat)) * np.cos(sdec) * np.cos(hr_angle)
+        )
+    # solar azimuth angle in radians
+    # I'm confused by the addition of 180 or 360 degrees based on hour angle.
+    # This might not be entirely accurate.
+    saa = (2,1)[np.nanmin(lat)>sdec]*m.pi - np.arcsin(
+            np.sin(abs(hr_angle)) * np.cos(sdec) / np.sin(sza)
+            )
+    return tuple(map(np.rad2deg, (sza, saa)))
+
 
 def cross_track_area(vza:np.ndarray):
     """

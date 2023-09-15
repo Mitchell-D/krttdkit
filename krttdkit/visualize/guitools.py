@@ -48,8 +48,8 @@ def unique_colors(num:int, saturation:int=1, value:int=1):
                            cv.COLOR_HSV2RGB)
     return [ rgb_8bit[0,i]/255 for i in range(rgb_8bit.shape[1]) ]
 
-def scal_to_rgb(X:np.ndarray, hue_range:tuple=(0,.66), sat_range:tuple=(1,1),
-                val_range:tuple=(1,1)):
+def scal_to_rgb(X:np.ndarray, hue_range:tuple=(0,.5), sat_range:tuple=(1,1),
+                val_range:tuple=(1,1), normalize=True):
     """
     Convert a 2d array of data values to a [0,1]-normalized RGB using an hsv
     reference system. For a basic color scale, just change the hue parameter.
@@ -62,7 +62,8 @@ def scal_to_rgb(X:np.ndarray, hue_range:tuple=(0,.66), sat_range:tuple=(1,1),
         i,f = r
         if not 0<=i<=1 and 0<=f<=1:
             raise ValueError(f"All bounds must be between 0 and 1 ({i},{f})")
-    X  = enhance.linear_gamma_stretch(X)
+    if normalize:
+        X  = enhance.linear_gamma_stretch(X)
     to_interval = lambda X, interval: X*(interval[1]-interval[0])+interval[0]
     hsv = np.dstack([to_interval(X,intv) for intv in
                      (hue_range, sat_range, val_range)])
@@ -239,6 +240,8 @@ def trackbar_select(X:np.ndarray, func, label="", resolution:int=256,
 def region_select(X:np.ndarray, show_selection:bool=False, debug=False):
     """
     Render the image in a full-resolution cv2 and call selectROI
+
+    :@param X:
     """
     #im = cv.imread(cv.samples.findFile(image_file.as_posix()))
     if len(X.shape) == 2:

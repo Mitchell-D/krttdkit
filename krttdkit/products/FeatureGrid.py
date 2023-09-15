@@ -451,9 +451,9 @@ class FeatureGrid:
         Drop the dataset with the provided label from this FeatureGrid.
         """
         i = self._labels.index(label)
-        self._labels = tuple(list(self._labels[:i])+list(self._labels[i+1:]))
-        self._data = tuple(list(self._data[:i])+list(self._data[i+1:]))
-        self._info = tuple(list(self._info[:i])+list(self._info[i+1:]))
+        self._labels = list(self._labels[:i])+list(self._labels[i+1:])
+        self._data = list(self._data[:i])+list(self._data[i+1:])
+        self._info = list(self._info[:i])+list(self._info[i+1:])
 
     def get_bound(self, label, upper=True, lower=False, bg_recipe=None):
         """
@@ -563,7 +563,7 @@ class FeatureGrid:
         currently-loaded scalar feature array or an added recipe. Accepts
         any object that implements __str__(), ie integer band numbers.
         """
-        label = str(label).lower()
+        #label = str(label).lower()
         return label in self._labels or label in self._recipes.keys() \
                 or label in transforms.keys()
 
