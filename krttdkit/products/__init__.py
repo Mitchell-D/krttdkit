@@ -6,8 +6,11 @@ possible.
 """
 from .FireDetector import FireDetector
 from .FeatureGrid import FeatureGrid
+from .ZarrGrid import ZarrGrid
 from .TimeGrid import TimeGrid
 from .GeosGeom import GeosGeom
 from .MOD021KM import MOD021KM
 from .PixelCat import PixelCat
 from .ABIL1b import ABIL1b
+from .CoordSystem import CoordSystem, IntAxis, CoordAxis
+from .HyperGrid import HyperGrid

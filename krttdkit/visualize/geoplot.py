@@ -31,8 +31,8 @@ plt.rcParams.update({
 
 plot_spec_default = {
     "title":"",
-    "title_size":14,
-    "label_size":12,
+    "title_size":36,
+    "label_size":None,
     "gridline_color":"gray",
     "data_colors":None,
     "fig_size":(16,9),
@@ -137,7 +137,7 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
     """
     cat_labels = list(data_dict.keys())
     band_count = len(band_labels)
-    assert band_count > 1
+    assert band_count >= 1
     for cat in cat_labels:
         assert len(data_dict[cat]["means"]) == band_count
         assert len(data_dict[cat]["stdevs"]) == band_count
@@ -177,7 +177,7 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
                       fontsize=plot_spec.get("label_size"))
         ax.set_ylabel(plot_spec.get("ylabel"),
                       fontsize=plot_spec.get("label_size"))
-        ax.set_title(plot_spec.get("title"), fontsize=plt.get("title_size"))
+        ax.set_title(plot_spec.get("title"), fontsize=plot_spec.get("title_size"))
         ax.legend(fontsize=plot_spec.get("legend_font_size"))
 
     fig.tight_layout()
@@ -251,7 +251,7 @@ def round_to_n(x, n):
     except ValueError:
         return 0
 
-def plot_lines(domain, ylines:list, image_path:Path=None,
+def plot_lines(domain:list, ylines:list, image_path:Path=None,
                labels:list=[], plot_spec={}, show:bool=False):
     """
     Plot a list of 1-d lines that share a domain and codomain.
@@ -306,6 +306,8 @@ def plot_lines(domain, ylines:list, image_path:Path=None,
     if len(labels):
         plt.legend(fontsize=plot_spec.get("legend_font_size"),
                    ncol=plot_spec.get("legend_ncols"))
+    if plot_spec.get("grid"):
+        plt.grid()
     if show:
         plt.show()
     if not image_path is None:

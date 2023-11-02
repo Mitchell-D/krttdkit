@@ -41,6 +41,7 @@ def next_abi(data_dir:Path, pkl_path:Path, target_time:datetime=None,
     else:
         fg = ABIL1b.from_pkl(pkl_path)
 
+    print(fg.labels)
     if target_latlon:
         latlon = np.dstack((fg.data("lat"), fg.data("lon")))
         yrange,xrange = get_geo_range(latlon, target_latlon, dx_px, dy_px,

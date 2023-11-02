@@ -1,5 +1,5 @@
 """
-The FeatureGrid class provides an abstraction on a set of 2d scalar arrays on
+The ZarrGrid class provides an abstraction on a set of 2d scalar arrays on
 a uniform-grid, enabling the user to easily access, visualize, manipulate, and
 store the scalar feature arrays along with labels and metadata.
 """
@@ -20,14 +20,14 @@ from krttdkit.operate.recipe_book import transforms
 from krttdkit.operate import classify
 from krttdkit.operate import Recipe
 
-class FeatureGrid:
+class ZarrGrid:
     """
-    A FeatureGrid is defined four attributes:
+    A ZarrGrid is defined four attributes:
 
      - list of unique string labels
      - list of data arrays with uniform shapes corresponding to each label
      - list of JSON-serializable information dicts corresponding to each label
-     - JSON-serializable dict of meta-information about the FeatureGrid
+     - JSON-serializable dict of meta-information about the ZarrGrid
 
     and can be fully represented as a 3d array of features shaped like (M,N,F)
     and a JSON tree of labels, information, and meta-data like:
@@ -36,7 +36,7 @@ class FeatureGrid:
                  "info":[list of JSON-serializable dicts]}
                  "meta":{JSON-serializable dict}}
 
-    The FeatureGrid object enables the user to access and operate on the data
+    The ZarrGrid object enables the user to access and operate on the data
     using the string labels and the data() object method. This method is also
     able to evaluate a hierarchy of recipes.
 
@@ -47,7 +47,7 @@ class FeatureGrid:
     shape (ie functions of the form T:A->A). Prepending a transform label to
     a data label will return the data after the transform has been applied.
 
-    For example, with FeatureGrid instance fg, which has the "truecolor"
+    For example, with ZarrGrid instance fg, which has the "truecolor"
     recipe loaded along with the required recipe data, one can get a truecolor
     image normalized to integers in [0,255] using the norm256 transform with:
 
@@ -62,7 +62,7 @@ class FeatureGrid:
     @staticmethod
     def merge(fg1, fg2, drop_duplicates=False, debug=False):
         """
-        Given 2 FeatureGrid object instances, returns a new FeatureGrid with
+        Given 2 ZarrGrid object instances, returns a new ZarrGrid with
         all of their features and meta-dictionaries combined. If any labels
         are duplicated and drop_duplicates is True, fg2 duplicates are ignored.
         """
@@ -75,12 +75,12 @@ class FeatureGrid:
         try:
             new_meta = dict(json.loads(fg1.to_json()))
         except:
-            raise ValueError(f"Provided FeatureGrid fg1 doesn't have JSON"+\
+            raise ValueError(f"Provided ZarrGrid fg1 doesn't have JSON"+\
                     "-serializable meta-dict, labels, or info dicts.")
         try:
             fg2_meta = dict(json.loads(fg2.to_json()))
         except:
-            raise ValueError(f"Provided FeatureGrid fg2 doesn't have JSON"+\
+            raise ValueError(f"Provided ZarrGrid fg2 doesn't have JSON"+\
                     "-serializable meta-dict, labels, or info dicts.")
 
 
@@ -90,7 +90,7 @@ class FeatureGrid:
                 if debug: print(TF.RED(f"Duplicate label: {l2}"))
                 if drop_duplicates:
                     continue
-                raise ValueError(f"FeatureGrids have common label: {l2}")
+                raise ValueError(f"ZarrGrids have common label: {l2}")
             new_labels.append(l2)
             new_data.append(fg2.data(l2))
             new_info.append(fg2.info(l2))
@@ -105,29 +105,28 @@ class FeatureGrid:
                     combined = [new_meta[k1], fg2_meta[k1]]
                     new_meta[k1] = combined
 
-        return FeatureGrid(new_labels, new_data, new_info, new_meta)
+        return ZarrGrid(new_labels, new_data, new_info, new_meta)
 
     @staticmethod
     def from_pkl(pkl_path:Path):
         """
-        Recovers a FeatureGrid from a pkl object expected to contain a 2-tuple
+        Recovers a ZarrGrid from a pkl object expected to contain a 2-tuple
         like (fg_dict, data) where fg_dict is a dictionary following the
-        FeatureGrid standard with keys for 'labels', 'info', and 'meta', and
+        ZarrGrid standard with keys for 'labels', 'info', and 'meta', and
         data is a list of uniform (M,N,F) shaped arrays corresponding to the
         F features in the 'labels' and 'info' arrays.
         """
         fg_dict, data = pkl.load(pkl_path.open("rb"))
-        return FeatureGrid(
+        return ZarrGrid(
                 labels=fg_dict["labels"],
                 data=data,
                 info=fg_dict["info"],
                 meta=fg_dict["meta"]
                 )
 
-    def __init__(self, labels:list=[], data:list=[],
-                 info:list=[], meta:dict={}):
+    def __init__(self, labels:list, data:list, info:list=None, meta:dict={}):
         # Make sure there is a label for every dataset
-        assert len(labels) == len(data)# != 0
+        assert len(labels) == len(data) != 0
         # If an info dict is provided, make sure there's one for each feature
         if info:
             assert len(info) == len(labels)
@@ -162,7 +161,7 @@ class FeatureGrid:
 
     def to_dict(self):
         """
-        All the information needed to recover the FeatureGrid given an
+        All the information needed to recover the ZarrGrid given an
         appropriately-shaped data array.
         """
         return {"labels":self._labels, "info":self._info, "meta":self._meta}
@@ -176,13 +175,12 @@ class FeatureGrid:
         Return the array or evaluated recipe associated with the label
 
         :@param mask: if mask isn't None, applies the provided boolean mask
-            with the same shape as this FeatureGrid to the base recipe before
+            with the same shape as this ZarrGrid to the base recipe before
             applying any transforms or recipes, such that any elements with a
             'True' value in the mask won't be included in the calculations.
         """
         if label is None:
-            return np.copy(np.dstack(self._data))
-        label = str(label)
+            return np.copy(self._data)
         sequence = label.split(" ")
         base_label = sequence[-1]
         tran = sequence[:-1]
@@ -243,7 +241,7 @@ class FeatureGrid:
         If this raises linear algebra errors, try selecting more samples.
 
         :@param select_recipe: String label of the feature or recipe available
-            from this FeatureGrid to use to pick category pixel candidates
+            from this ZarrGrid to use to pick category pixel candidates
         :@param categories: List of unique string categories for each class of
             pixels you want to train mlc to recognize
         :@param labels: List of valid string labels for input arrays to include
@@ -268,7 +266,7 @@ class FeatureGrid:
     def do_mdc(self, select_recipe:str, categories:list, labels:list=None):
         """
         :@param select_recipe: String label of the feature or recipe available
-            from this FeatureGrid to use to pick category pixel candidates
+            from this ZarrGrid to use to pick category pixel candidates
         :@param categories: List of unique string categories for each class of
             pixels you want to train mlc to recognize
         :@param labels: List of valid string labels for input arrays to include
@@ -289,7 +287,7 @@ class FeatureGrid:
         Return evaluated recipe or base feature from a label
 
         :@param mask: if mask isn't None, applies the provided boolean mask
-            with the same shape as this FeatureGrid to the base recipe before
+            with the same shape as this ZarrGrid to the base recipe before
             applying any transforms or recipes, such that any elements with a
             'True' value in the mask won't be included in the calculations.
         """
@@ -393,6 +391,7 @@ class FeatureGrid:
                                      min(vcoords),max(vcoords)),
                     #"imshow_aspect":1,
                     }
+            print(vcoords)
             def_ps.update(plot_spec)
             gp.plot_heatmap(heatmap=M, plot_spec=def_ps, show=show,
                             fig_path=fig_path)
@@ -401,8 +400,8 @@ class FeatureGrid:
 
     def to_pkl(self, pkl_path:Path, overwrite=True):
         """
-        Stores this FeatureGrid object as a pkl recoverable by the
-        FeatureGrid.from_pkl static method.
+        Stores this ZarrGrid object as a pkl recoverable by the
+        ZarrGrid.from_pkl static method.
 
         :@param pkl_path: Location to save this ABIL1b instance
         :@param overwrite: If True, overwrites pkl_path if it already exits
@@ -414,7 +413,7 @@ class FeatureGrid:
     def subgrid(self, labels:list=None, vrange:tuple=None, hrange:tuple=None):
         """
         Given array slices corresponding to the horizontal and vertical axes
-        of this FeatureGrid, returns a new FeatureGrid with subsetted arrays
+        of this ZarrGrid, returns a new ZarrGrid with subsetted arrays
         and subsetted labels if a labels array is provided.
 
         :@param labels: Ordered labels of arrays included in the subgrid
@@ -424,7 +423,7 @@ class FeatureGrid:
         vslice = slice(None) if vrange is None else slice(*vrange)
         hslice = slice(None) if hrange is None else slice(*hrange)
         labels = self.labels if labels is None else labels
-        fg = FeatureGrid(
+        fg = ZarrGrid(
                 labels=labels,
                 data=[self.data(l)[vslice,hslice] for l in labels],
                 info=[self.info(l) for l in labels],
@@ -435,8 +434,8 @@ class FeatureGrid:
 
     def to_json(self, indent=None):
         """
-        Returns the dictionary version of this FeatureGrid as a json-formatted
-        string. This includes labels, shape, etc so that the full FeatureGrid
+        Returns the dictionary version of this ZarrGrid as a json-formatted
+        string. This includes labels, shape, etc so that the full ZarrGrid
         object can be recovered given a (M,N,F) shaped unlabeled numpy array
         """
         return json.dumps(self.to_dict(), indent=indent)
@@ -445,17 +444,16 @@ class FeatureGrid:
         """
         Given 3 recipes, return an RGB after evaluating any transforms/recipe
         """
-        return np.dstack(tuple(map(self.data, (r,g,b))))
+        return np.dstack(map(self.data, (r,g,b)))
 
     def drop_data(self, label:str):
         """
-        Drop the dataset with the provided label from this FeatureGrid.
+        Drop the dataset with the provided label from this ZarrGrid.
         """
         i = self._labels.index(label)
         self._labels = list(self._labels[:i])+list(self._labels[i+1:])
         self._data = list(self._data[:i])+list(self._data[i+1:])
         self._info = list(self._info[:i])+list(self._info[i+1:])
-        return self
 
     def get_bound(self, label, upper=True, lower=False, bg_recipe=None):
         """
@@ -511,12 +509,12 @@ class FeatureGrid:
     def add_data(self, label:str, data:np.ndarray, info:dict=None,
                  extract_mask:bool=True):
         """
-        Add a new data field to the FeatureGrid with an equally-shaped ndarray
-        and a unique label. If this FeatureGrid has no data, this method will
+        Add a new data field to the ZarrGrid with an equally-shaped ndarray
+        and a unique label. If this ZarrGrid has no data, this method will
         set the object's immutable shape attribute.
 
         :@param label: Unique label to identify the data array
-        :@param data: 2d numpy array with identical shape to this FeatureGrid
+        :@param data: 2d numpy array with identical shape to this ZarrGrid
         :@param info: Optional dictionary of attributes corresponding to this
             dataset, which can be useful for storing information for
             downstream applications.
@@ -525,7 +523,6 @@ class FeatureGrid:
 
         :@return: None
         """
-        label = str(label)
         if self._shape is None:
             assert len(data.shape)==2
             self._shape = data.shape
@@ -534,7 +531,7 @@ class FeatureGrid:
         elif self._shape != data.shape:
             raise ValueError(
                     f"Cannot add {label} array with shape {data.shape}. Data"
-                    f" must match this FeatureGrid's shape: {self._shape}")
+                    f" must match this ZarrGrid's shape: {self._shape}")
 
         # Make sure the new label is unique and valid
         if self._label_exists(label):
@@ -553,7 +550,6 @@ class FeatureGrid:
         self._labels.append(label)
         self._data.append(data)
         self._info.append(dict(info) if info else {})
-        return self
 
     def __repr__(self, indent=2):
         """

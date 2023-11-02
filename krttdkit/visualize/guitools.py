@@ -287,7 +287,7 @@ def quick_render(X:np.ndarray, colorize=False):
     """
     Method for rapidly rendering a 2d or 3d array as a sanity check.
     """
-    X = enhance.linear_gamma_stretch(X)
+    X = enhance.norm_to_uint(X, 256, np.uint8)
     if len(X.shape) == 2:
         if not colorize:
             X = np.dstack((X, X, X))
@@ -366,7 +366,7 @@ def label_at_index(X:np.ndarray, location:tuple, text:str=None, size:int=11,
     img = cv.line(X, TL[::-1], BR[::-1], color, thickness)
     img = cv.line(X, BL[::-1], TR[::-1], color, thickness)
 
-    '''
+    #'''
     if not text is None:
         if text_offset is None:
             # place text under point by default. text_offset is in (y,x) coords
@@ -374,8 +374,9 @@ def label_at_index(X:np.ndarray, location:tuple, text:str=None, size:int=11,
             text_offset = (0,-1*size)
         dy, dx = text_offset
         font = cv.FONT_HERSHEY_SIMPLEX
-        img = cv.putText(img, c_y)
-    '''
+        img = cv.putText(img, text=text, org=(c_y+dy,c_x+dx), fontFace=font,
+                         font_scale=font_scale, color=color)
+    #'''
     return np.ma.array(img, mask) if not mask is None else img
 
 def rect_on_rgb(X:np.ndarray, yrange:tuple, xrange:tuple,
