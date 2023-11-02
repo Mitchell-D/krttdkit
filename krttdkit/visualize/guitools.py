@@ -48,8 +48,8 @@ def unique_colors(num:int, saturation:int=1, value:int=1):
                            cv.COLOR_HSV2RGB)
     return [ rgb_8bit[0,i]/255 for i in range(rgb_8bit.shape[1]) ]
 
-def scal_to_rgb(X:np.ndarray, hue_range:tuple=(0,.66), sat_range:tuple=(1,1),
-                val_range:tuple=(1,1)):
+def scal_to_rgb(X:np.ndarray, hue_range:tuple=(0,.5), sat_range:tuple=(1,1),
+                val_range:tuple=(1,1), normalize=True):
     """
     Convert a 2d array of data values to a [0,1]-normalized RGB using an hsv
     reference system. For a basic color scale, just change the hue parameter.
@@ -62,7 +62,8 @@ def scal_to_rgb(X:np.ndarray, hue_range:tuple=(0,.66), sat_range:tuple=(1,1),
         i,f = r
         if not 0<=i<=1 and 0<=f<=1:
             raise ValueError(f"All bounds must be between 0 and 1 ({i},{f})")
-    X  = enhance.linear_gamma_stretch(X)
+    if normalize:
+        X  = enhance.linear_gamma_stretch(X)
     to_interval = lambda X, interval: X*(interval[1]-interval[0])+interval[0]
     hsv = np.dstack([to_interval(X,intv) for intv in
                      (hue_range, sat_range, val_range)])
@@ -239,6 +240,8 @@ def trackbar_select(X:np.ndarray, func, label="", resolution:int=256,
 def region_select(X:np.ndarray, show_selection:bool=False, debug=False):
     """
     Render the image in a full-resolution cv2 and call selectROI
+
+    :@param X:
     """
     #im = cv.imread(cv.samples.findFile(image_file.as_posix()))
     if len(X.shape) == 2:
@@ -284,7 +287,7 @@ def quick_render(X:np.ndarray, colorize=False):
     """
     Method for rapidly rendering a 2d or 3d array as a sanity check.
     """
-    X = enhance.linear_gamma_stretch(X)
+    X = enhance.norm_to_uint(X, 256, np.uint8)
     if len(X.shape) == 2:
         if not colorize:
             X = np.dstack((X, X, X))
@@ -363,7 +366,7 @@ def label_at_index(X:np.ndarray, location:tuple, text:str=None, size:int=11,
     img = cv.line(X, TL[::-1], BR[::-1], color, thickness)
     img = cv.line(X, BL[::-1], TR[::-1], color, thickness)
 
-    '''
+    #'''
     if not text is None:
         if text_offset is None:
             # place text under point by default. text_offset is in (y,x) coords
@@ -371,8 +374,9 @@ def label_at_index(X:np.ndarray, location:tuple, text:str=None, size:int=11,
             text_offset = (0,-1*size)
         dy, dx = text_offset
         font = cv.FONT_HERSHEY_SIMPLEX
-        img = cv.putText(img, c_y)
-    '''
+        img = cv.putText(img, text=text, org=(c_y+dy,c_x+dx), fontFace=font,
+                         font_scale=font_scale, color=color)
+    #'''
     return np.ma.array(img, mask) if not mask is None else img
 
 def rect_on_rgb(X:np.ndarray, yrange:tuple, xrange:tuple,

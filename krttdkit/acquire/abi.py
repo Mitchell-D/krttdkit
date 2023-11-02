@@ -18,26 +18,32 @@ bands={
         1:{"ctr_wl":0.47,
            "name":"Visible Blue",
            "default_res":1,
+            "kappa0":0.0015839,
            },
         2:{"ctr_wl":0.64,
            "name":"Visible Red 0",
            "default_res":.5,
+            "kappa0":0.0019586,
            },
         3:{"ctr_wl":0.86,
            "name":"Near-Infrared Veggie",
            "default_res":1,
+            "kappa0":0.0033384,
            },
         4:{"ctr_wl":1.37,
            "name":"Near-Infrared Cirrus",
            "default_res":2,
+            "kappa0":0.008853,
            },
         5:{"ctr_wl":1.6,
            "name":"Near-Infrared Snow/Ice",
            "default_res":1,
+            "kappa0":0.0131734,
            },
         6:{"ctr_wl":2.2,
            "name":"Near-Infrared Cloud particle size",
            "default_res":2,
+            "kappa0":0.0415484,
            },
         7:{"ctr_wl":3.9,
            "name":"Infrared Shortwave window",
@@ -129,6 +135,25 @@ def get_l2(data_file:Path, include_latlon=True, include_angles=False):
     elif "ACTP" in file.product.scan:
         data += [ds["Phase"][:].data, ds["DQF"][:].data]
         labels += ["cloud_phase", "q_actp"]
+    elif "BRF" in file.product.scan:
+        labels += ["BRF1", "BRF2", "BRF3", "BRF5", "BRF6"]
+        data += [ds[l][:].data for l in labels[-5:]]
+        labels.append("q_brf")
+        data.append(ds["DQF"][:].data)
+        #print(ds["retrieval_solar_zenith_angle"][:])
+    # Cloud optical depth
+    elif "COD" in file.product.scan:
+        data.append(ds["COD"][:])
+        data.append(ds["DQF"][:])
+        labels += ["cod", "q_cod"]
+    # Cloud particle size
+    elif "CPS" in file.product.scan:
+        data.append(ds["PSD"][:])
+        data.append(ds["DQF"][:])
+        labels += ["cre", "q_cre"]
+    else:
+        print("Unrecognized:",file.product.scan)
+        exit(0)
 
     if include_latlon:
         labels += ["lat", "lon"]

@@ -72,6 +72,7 @@ default_params = [
     ('zout',  0.0,100.0, 'Bottom and top altitudes for IOUT (km)'),
     ('iout',  10, 'Output format ID'),
     ('deltam', 't', 'If True, Uses Delta-m method (Wiscombe, 1977)'),
+    ('corint',  'f', 'Use (Nakajima & Tanaka, 1988) Delta-M correction'),
     ('lamber',  't', ''),
     ('ibcnd',  0, 'Boundary illumination; 1 if isotropic illumination from bottom'),
     ('saza',  180.0, 'Solar azimuth angle (deg)'),

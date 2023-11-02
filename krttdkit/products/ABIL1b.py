@@ -185,7 +185,6 @@ class ABIL1b:
     def from_pkl(pkl_path:Path):
         fg = FeatureGrid.from_pkl(pkl_path)
         for label, recipe in abi_recipes.items():
-            print(label)
             fg.add_recipe(label, recipe)
         return fg
 

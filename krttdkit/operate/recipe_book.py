@@ -27,13 +27,58 @@ def selectgamma(X:np.ndarray, offset=-2.5, scale=5):
     response = gt.trackbar_select(X=X, func=_get_gamma, label="Gamma exponent")
     return enh.linear_gamma_stretch(X, ((1+response)/256)*scale+offset)
 
+def gaussnorm(X:np.ndarray, radius=3):
+    """
+    Scale data values to the corresponding mean and standard deviation
+    gaussian distribution, saturating values outside of the radius
+    of standard deviations on either side of the mean.
+    """
+    print(X.shape)
+    X1 = X-np.average(X)
+    Xnorm = X1/np.std(X)
+    return np.clip(Xnorm, -abs(radius), abs(radius))
+
+def histgauss(X):
+    if len(X.shape)==3:
+        return np.stack([histgauss(X[...,i]) for i in range(X.shape[-1])],
+                        axis=-1)
+    N = gt.get_normal_array(*X.shape[:2])
+    return enh.histogram_match(X, N, nbins=1024)
+
+def fft2d(X):
+    return enh.dft2D(X, inverse=False, use_scipy=True)
+def ifft2d(X):
+    return enh.dft2D(X, inverse=True, use_scipy=True)
+def logfft2d(X):
+    return np.log(1+np.abs(enh.dft2D(X, inverse=False, use_scipy=True)))
+def ilogfft2d(X):
+    return np.exp(enh.dft2D(X, inverse=True, use_scipy=True))-1
+
+def selectlowpass(X):
+    res = 512
+    yroll, xroll = X.shape[0]//2, X.shape[1]//2
+    dy, dx = np.meshgrid(map(np.arange, X.shape))
+    D = enh.linear_gamma_stretch(((dy-yroll)**2+(dx-xroll)**2)**(1/2))
+    def lowpass(X,v):
+        enh.dft2D(X, inverse=True)
+
+    return trackbarselect(resolution=res)
+
 # todo: find way to pass runtime parameters to transforms, probably
 # by abstracting them into a class like Recipe
 transforms = {
         "norm1": lambda X: enh.linear_gamma_stretch(X),
         "histeq": lambda X: enh.histogram_equalize(
             X, nbins=256)[0].astype(np.uint8),
+        "histgauss":histgauss,
         "norm256": lambda X: enh.norm_to_uint(X, 256, np.uint8),
         "selectgamma":selectgamma,
+        "selectlowpass":selectlowpass,
         "colorize":colorize,
+        "gaussnorm":gaussnorm,
+        "fft2d":fft2d,
+        "ifft2d":ifft2d,
+        "logfft2d":logfft2d,
+        "ilogfft2d":ilogfft2d,
+        "fft2d":fft2d,
         }

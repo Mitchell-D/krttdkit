@@ -27,7 +27,8 @@ kernels = {
                    [-1, 0, 1]],
         }
 
-def visualize_fourier(X:np.ndarray):
+#def visualize_fourier(X:np.ndarray):
+def log_fourier(X:np.ndarray):
     """ Return the provided array in natural log-scaled phase space """
     return np.log(1+np.abs(fft2(X)))
 
@@ -76,7 +77,7 @@ def radius_mask(X:np.ndarray, radius:float=None, center:tuple=None,
     X[mask] = fill
     return X
 
-def dft2D(X:np.ndarray, inverse:bool=False, use_scipy:bool=False):
+def dft2D(X:np.ndarray, inverse:bool=False, use_scipy:bool=True):
     if use_scipy:
         row_pass = np.stack([
             (fft,ifft)[inverse](X[i,:])

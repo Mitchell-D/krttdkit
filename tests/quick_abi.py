@@ -41,6 +41,7 @@ def next_abi(data_dir:Path, pkl_path:Path, target_time:datetime=None,
     else:
         fg = ABIL1b.from_pkl(pkl_path)
 
+    print(fg.labels)
     if target_latlon:
         latlon = np.dstack((fg.data("lat"), fg.data("lon")))
         yrange,xrange = get_geo_range(latlon, target_latlon, dx_px, dy_px,
@@ -108,7 +109,7 @@ def parse_args():
     # If no day argument or hour argument is provided, default to now.
     else:
         if raw_args.day is None:
-            target_time = datetime.utcnow()-timedelta(days=1)
+            target_time = datetime.utcnow()#-timedelta(days=1)
         else:
             target_time = datetime.strptime(raw_args.day, "%Y%m%d")
     grid_center = None

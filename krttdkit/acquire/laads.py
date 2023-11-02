@@ -174,8 +174,9 @@ def query_product(product_key:str, start_time:dt, end_time:dt,
     if not archive is None and archive not in pinfo["archives"].keys():
         raise ValueError(f"Provided archive {archive} not a valid option " + \
             f"for product {product_key};\nvalid: {pinfo['archives'].keys()}")
+    print(pinfo)
     archive = str(archive) if not archive is None \
-            else str(pinfo["defaultArchiveSet"])
+            else str(list(pinfo["archives"].keys())[0])
     url = api_root + "/content/details?products=" + product_key
     url += "&temporalRanges=" + start_time.strftime('%Y-%jT%H:%M')
     url += ".." + end_time.strftime('%Y-%jT%H:%M')

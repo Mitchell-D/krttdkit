@@ -31,8 +31,8 @@ plt.rcParams.update({
 
 plot_spec_default = {
     "title":"",
-    "title_size":14,
-    "label_size":12,
+    "title_size":36,
+    "label_size":None,
     "gridline_color":"gray",
     "data_colors":None,
     "fig_size":(16,9),
@@ -63,10 +63,11 @@ plot_spec_default = {
     "cb_orient":"vertical",
     "cb_label":"",
     "cb_tick_count":15,
+    "cb_tick_size":None,
     "cb_levels":80,
     "cb_size":.6,
     "cb_pad":.05,
-    "cb_label_format":"{x:.1f}",
+    "cb_label_format":"{x:.2f}",
     "line_width":2,
     #"cb_cmap":"CMRmap",
     "cb_cmap":"jet",
@@ -136,7 +137,7 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
     """
     cat_labels = list(data_dict.keys())
     band_count = len(band_labels)
-    assert band_count > 1
+    assert band_count >= 1
     for cat in cat_labels:
         assert len(data_dict[cat]["means"]) == band_count
         assert len(data_dict[cat]["stdevs"]) == band_count
@@ -176,7 +177,7 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
                       fontsize=plot_spec.get("label_size"))
         ax.set_ylabel(plot_spec.get("ylabel"),
                       fontsize=plot_spec.get("label_size"))
-        ax.set_title(plot_spec.get("title"), fontsize=plt.get("title_size"))
+        ax.set_title(plot_spec.get("title"), fontsize=plot_spec.get("title_size"))
         ax.legend(fontsize=plot_spec.get("legend_font_size"))
 
     fig.tight_layout()
@@ -187,6 +188,7 @@ def stats_1d(data_dict:dict, band_labels:list, fig_path:Path=None,
         fig.savefig(fig_path.as_posix())
 
 def plot_heatmap(heatmap:np.ndarray, fig_path:Path=None, show=True,
+                 show_ticks=True, plot_diagonal:bool=False,
                  plot_spec:dict={}):
     """
     Plot an integer heatmap, with [0,0] indexing the lower left corner
@@ -197,6 +199,10 @@ def plot_heatmap(heatmap:np.ndarray, fig_path:Path=None, show=True,
     plot_spec = old_ps
 
     fig, ax = plt.subplots()
+
+    if plot_diagonal:
+        ax.plot((0,heatmap.shape[1]-1), (0,heatmap.shape[0]-1),
+                linewidth=plot_spec.get("line_width"))
     im = ax.imshow(
             heatmap,
             cmap=plot_spec.get("cmap"),
@@ -210,6 +216,11 @@ def plot_heatmap(heatmap:np.ndarray, fig_path:Path=None, show=True,
             im, orientation=plot_spec.get("cb_orient"),
             label=plot_spec.get("cb_label"), shrink=plot_spec.get("cb_size")
             )
+    if not show_ticks:
+        plt.tick_params(axis="x", which="both", bottom=False,
+                        top=False, labelbottom=False)
+        plt.tick_params(axis="y", which="both", bottom=False,
+                        top=False, labelbottom=False)
     if plot_spec["imshow_extent"]:
         extent = plot_spec.get("imshow_extent")
         assert len(extent)==4
@@ -240,7 +251,7 @@ def round_to_n(x, n):
     except ValueError:
         return 0
 
-def plot_lines(domain, ylines:list, image_path:Path=None,
+def plot_lines(domain:list, ylines:list, image_path:Path=None,
                labels:list=[], plot_spec={}, show:bool=False):
     """
     Plot a list of 1-d lines that share a domain and codomain.
@@ -295,6 +306,8 @@ def plot_lines(domain, ylines:list, image_path:Path=None,
     if len(labels):
         plt.legend(fontsize=plot_spec.get("legend_font_size"),
                    ncol=plot_spec.get("legend_ncols"))
+    if plot_spec.get("grid"):
+        plt.grid()
     if show:
         plt.show()
     if not image_path is None:
@@ -330,8 +343,8 @@ def basic_bars(labels, values, xcoords:list=None, err=None, plot_spec:dict={}):
     plt.ylabel(plot_spec.get("ylabel"))
     plt.show()
 
-def basic_plot(x, y, image_path:Path, plot_spec:dict={}, scatter:bool=False,
-               show:bool=False):
+def basic_plot(x, y, image_path:Path=None, plot_spec:dict={},
+               scatter:bool=False, show:bool=True):
     fig, ax = plt.subplots()
     if scatter:
         ax.scatter(x,y)
@@ -351,7 +364,8 @@ def basic_plot(x, y, image_path:Path, plot_spec:dict={}, scatter:bool=False,
     plt.xlabel(plot_spec.get("xlabel"))
     plt.ylabel(plot_spec.get("ylabel"))
     print(f"Saving figure to {image_path}")
-    fig.savefig(image_path)
+    if image_path:
+        fig.savefig(image_path)
     if show:
         plt.show()
 
@@ -593,6 +607,8 @@ def geo_scalar_plot(data:np.ndarray, lat:np.ndarray, lon:np.ndarray,
             shrink=shrink,
             ticks=LinearLocator(plot_spec.get("cb_tick_count")),
             )
+    if plot_spec.get("cb_tick_size"):
+        cbar.ax.tick_params(labelsize=plot_spec.get("cb_tick_size"))
     cbar.set_label(plot_spec.get('cb_label'))
     dpi = "figure" if not plot_spec.get("dpi") else plot_spec.get("dpi")
     if animate:

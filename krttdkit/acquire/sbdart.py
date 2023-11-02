@@ -58,7 +58,7 @@ def dispatch_sbdart(params:dict, tmp_dir:Path, sbdart_bin:Path=Path("sbdart")):
                 f"Cannot use temporary directory; {tmp_dir} exists!")
     if not tmp_dir.parent.exists():
         raise ValueError(
-                f"Parent directory of tmp_dir {tmpdir} doesn't exist!")
+                f"Parent directory of tmp_dir {tmp_dir} doesn't exist!")
 
     tmp_dir.mkdir()
     args = " ".join(["=".join(map(str,p)) for p in params.items()])
