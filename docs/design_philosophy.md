@@ -1,8 +1,5 @@
 # krttdkit design philosophy
 
-My goal in developing `krttdkit` is to provide classes and methods
-which are reusable at every abstraction level, and to keep
-
 ### A functional backbone
 
 Pure-function modules are more efficient and reliable building
@@ -11,8 +8,6 @@ modules since _state-saving is prone to side-effects_. Without
 a persistent state that needs to be managed at runtime, it's
 easier to build lofty abstractions with compositions of the functions
 in the module and its pure-module dependencies.
-
-(add example after migrating `classify` module)
 
 ### The role of classes
 
