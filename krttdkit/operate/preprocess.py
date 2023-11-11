@@ -116,14 +116,14 @@ def double_window_slide(X:np.ndarray, look_back:int, look_forward:int,
         return (X, Y, times)
     return (X, Y)
 
-def gauss_norm(X:np.ndarray, axis=-1, mask:np.ndarray=None):
+def gauss_norm(X:np.ndarray, ind_axis=-1, mask:np.ndarray=None):
     """
     Independently normalize each feature (sub-array) along the provided axis,
     returning the scaled array along with 2 tuples. This method is general
     enough to handle any data shape.
 
     :@param X: Numpy array to normalize
-    :@param axis: Axis indexing features that should be independently normed.
+    :@param ind_axis: Axis indexing features that should be independently normed.
     :@param mask: Optional boolean mask with the same shape as X. Values masked
         'True' will be ignored in mean and standard devia calculations, but
         will be scaled along with the returned un-masked array.
@@ -132,11 +132,11 @@ def gauss_norm(X:np.ndarray, axis=-1, mask:np.ndarray=None):
         elements corresponding to each element in the specified axis.
     """
     # Convert any negative axes labels to positive
-    axis = (axis+len(X.shape))%len(X.shape)
+    ind_axis = (ind_axis+len(X.shape))%len(X.shape)
     mask = mask if not mask is None else np.full_like(X, False)
     M = np.ma.array(X, mask=mask)
     # Make broadcastable vectors for mean and standard deviation
-    data_axes = tuple([i for i in range(len(X.shape)) if i!=axis])
+    data_axes = tuple([i for i in range(len(X.shape)) if i!=ind_axis])
     means = np.expand_dims(
             np.ma.mean(X, axis=data_axes),
             axis=data_axes)
