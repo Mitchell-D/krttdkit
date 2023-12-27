@@ -61,7 +61,7 @@ def dispatch_sbdart(params:dict, tmp_dir:Path, sbdart_bin:Path=Path("sbdart")):
                 f"Parent directory of tmp_dir {tmp_dir} doesn't exist!")
 
     tmp_dir.mkdir()
-    args = " ".join(["=".join(map(str,p)) for p in params.items()])
+    args = "\n  ".join(["=".join(map(str,p)) for p in params.items()])
     tmp_dir.joinpath("INPUT").open("w").write(f"&INPUT {args}/\n")
     stdout, stderr = Popen(sbdart_bin, cwd=tmp_dir.as_posix(),
                            stdout=PIPE,stderr=PIPE).communicate()

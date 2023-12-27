@@ -183,7 +183,23 @@ def watervapor(f6p2um:np.ndarray, f7p3um:np.ndarray, f10p3um:np.ndarray):
     #R = 1-R
     return np.dstack((R, G, B))
 
+def sport_dust(b11, b13, b14, b15):
+    ## Optical depth
+    R = np.clip(_gamma_norm(b15-b13, -6.7, 2.6, 1), 0, 1)
+    ## Particle phase; small -> ice and dust
+    G = np.clip(_gamma_norm(b14-b11, -0.5, 20, 2.5), 0, 1)
+    ## surface temp
+    B = np.clip(_gamma_norm(b13, -11.95, 15.55, 1), 0, 1)
+    return np.dstack((R, G, B))
+
 abi_recipes = {
+        "dust":Recipe(
+            args=("11-tb", "13-tb", "14-tb", "15-tb"),
+            func=sport_dust,
+            name="SPoRT Dust RGB",
+            ref="https://rammb.cira.colostate.edu/training/visit/"
+                "quick_guides/Dust_RGB_Quick_Guide.pdf",
+            ),
         "truecolor":Recipe(
             args=("1-ref","2-ref","3-ref"),
             func=cimss_truecolor,
