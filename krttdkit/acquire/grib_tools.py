@@ -113,6 +113,16 @@ def get_grib1_data(grb1_path:Path, wgrib_bin="wgrib"):
     data = [ d.data()[0] for d in gf ]
     return (data, wgrib(f, wgrib_bin=wgrib_bin), geo)
 
+def get_grib1_grid(grb1_path:Path):
+    """
+    Parses only the gridded data from a grib1 file, not the latlons or wgrib
+    """
+    f = grb1_path
+    assert f.exists()
+    gf = pygrib.open(f.as_posix())
+    gf.seek(0)
+    return [d.data()[0] for d in gf]
+
 """ Below was previously extract_nldas_subgrid.py """
 
 def _extract_nldas_subgrid(args:tuple):
