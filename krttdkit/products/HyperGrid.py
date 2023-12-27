@@ -104,7 +104,7 @@ class HyperGrid:
         if as_hypergrid:
             slices = [b.as_slice for b in bounds]
             return HyperGrid(
-                    data=self.data()[*slices],
+                    data=self.data()[slices],
                     flabels=self._flabels,
                     clabels=self._clabels,
                     coord_arrays=[self._coords[i][slices[i]]
@@ -158,9 +158,9 @@ class HyperGrid:
                 slices.append(IntAxis(None).as_slice)
 
         if type(self._data) is zarr.Array:
-            data = self._data.oindex[*slices,feat_idxs]
+            data = self._data.oindex[slices,feat_idxs]
         else:
-            data = self._data[*slices,feat_idxs]
+            data = self._data[slices,feat_idxs]
         new_coords = [self._coords[i][slices[i]]
                       for i in range(len(self._coords))]
         ## TODO: to subgrid masks and remove stale keys from info dict

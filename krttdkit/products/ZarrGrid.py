@@ -207,7 +207,7 @@ class ZarrGrid:
         labels using the provided 2-tuple pixel indeces
         """
         tmp_sg = np.dstack(self.subgrid(labels)._data)
-        return np.vstack([tmp_sg[*p] for p in pixels])
+        return np.vstack([tmp_sg[p] for p in pixels])
 
     def get_pixels(self, recipe:str, labels:list=None, show=False,
                    plot_spec={}, fill_color:tuple=(0,255,255)):

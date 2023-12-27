@@ -174,7 +174,6 @@ def query_product(product_key:str, start_time:dt, end_time:dt,
     if not archive is None and archive not in pinfo["archives"].keys():
         raise ValueError(f"Provided archive {archive} not a valid option " + \
             f"for product {product_key};\nvalid: {pinfo['archives'].keys()}")
-    print(pinfo)
     archive = str(archive) if not archive is None \
             else str(list(pinfo["archives"].keys())[0])
     url = api_root + "/content/details?products=" + product_key
@@ -231,7 +230,9 @@ def download(target_url:str, dest_dir:Path, raw_token:str=None,
     dest_path = dest_dir.joinpath(Path(target_url).name)
     if dest_path.exists():
         if not replace:
-            raise ValueError(f"File exists: {dest_path.as_posix()}")
+            #raise ValueError(f"File exists: {dest_path.as_posix()}")
+            print(f"WARNING: file exists: {dest_path.as_posix()}")
+            return dest_path
         dest_path.unlink()
     command = f"wget -e robots=off -np - -nH --cut-dirs=4 {target_url}" + \
             f' --header "Authorization: Bearer {token}"' + \
@@ -240,6 +241,8 @@ def download(target_url:str, dest_dir:Path, raw_token:str=None,
         print(f"\033[33;7mDownloading\033[0m \033[34;1;4m{target_url}\033[0m")
     stdout, stderr = Popen(shlex.split(command),
                            stdout=PIPE, stderr=PIPE).communicate()
+    #if debug:
+    #    print(stderr)
     return dest_path
 
 if __name__=="__main__":

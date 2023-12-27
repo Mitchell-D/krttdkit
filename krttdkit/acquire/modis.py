@@ -260,7 +260,7 @@ def get_modis_data(datafile:Path, bands:tuple,
                 size=(w,h), resample=Image.BILINEAR))
             for X in sunsat]
 
-    if debug and l1b_convert_ref:
+    if debug and l1b_convert_reflectance:
         print("Converting to reflectance")
     if debug and l1b_convert_tb:
         print("Converting to brightness temperature")
@@ -313,8 +313,8 @@ def get_modis_data(datafile:Path, bands:tuple,
         if tmp_info["is_reflective"] and l1b_convert_reflectance:
             tmp_info["ref_scale"] = tmp_attrs["reflectance_scales"][idx]
             tmp_info["ref_offset"] = tmp_attrs["reflectance_offsets"][idx]
-            if b == 1:
-                print(tmp_info)
+            #if b == 1:
+            #    print(tmp_info)
             tmp_info["units"] = "Reflectance (BRDF)"
             # Bidirectional reflectance factor (Petty 5.15)
             # From l1b PUG p43, reflectance = rho*cos(sza)

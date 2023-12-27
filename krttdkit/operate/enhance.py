@@ -343,7 +343,7 @@ def get_nd_hist(arrays:list, bin_counts=256, ranges:list=None):
     '''
     if not ranges is None:
         assert len(ranges)==len(arrays)
-        assert all(type(r) is tuple and len(r) is 2 for r in ranges)
+        assert all(type(r) == tuple and len(r) == 2 for r in ranges)
         mins, maxes = map(np.asarray, zip(*ranges))
         ranges = maxes-mins
     else:
@@ -360,7 +360,8 @@ def get_nd_hist(arrays:list, bin_counts=256, ranges:list=None):
     # discretize Y to the appropriate number of bins
     H = np.zeros(bin_counts)
     for i in range(Y.shape[0]):
-        H[*tuple(Y[i])] += 1
+        ybounds = tuple(Y[i])
+        H[ybounds[0],ybounds[1]] += 1
     # Coordinates are the minimum value in each bin
     coords = [np.array([ranges[i]*j/bin_counts[i]+mins[i]
                         for j in range(bin_counts[i])])
