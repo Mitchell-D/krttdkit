@@ -60,13 +60,7 @@ def wgrib_tuples(grb1:Path, wgrib_bin="wgrib"):
     elements corresponding to the available fields in the grib1 file.
     """
     wgrib_command = f"{wgrib_bin} {grb1.as_posix()}"
-
-    out = subprocess.run(
-            args=shlex.split(wgrib_command),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            #capture_output=True,
-            )
+    out = subprocess.run(shlex.split(wgrib_command), capture_output=True)
     return [tuple(o.split(":")) for o in out.stdout.decode().split("\n")[:-1]]
 
 def wgrib(grb1:Path, wgrib_bin="wgrib"):
@@ -88,7 +82,7 @@ def wgrib(grb1:Path, wgrib_bin="wgrib"):
              "tf_pds":int(wg[9].split("=")[-1]),
              "fcst_pds":int(wg[10].split("=")[-1]), # Forecast id
              "navg":int(wg[13].split("=")[-1]), # Number of grid points in avg
-             } for wg in wgrib_tuples(grb1, wgrib_bin=wgrib_bin)]
+             } for wg in wgrib_tuples(grb1, wgrib_bin="wgrib")]
 
 def get_grib1_data(grb1_path:Path, wgrib_bin="wgrib"):
     """
@@ -111,7 +105,7 @@ def get_grib1_data(grb1_path:Path, wgrib_bin="wgrib"):
     # Only the first entry in data is valid for FORA0125 files, the other
     # two being the (uniform) lat/lon grid. Not sure how general this is.
     data = [ d.data()[0] for d in gf ]
-    return (data, wgrib(f, wgrib_bin=wgrib_bin), geo)
+    return (data, wgrib(f, wgrib_bin="wgrib"), geo)
 
 """ Below was previously extract_nldas_subgrid.py """
 
