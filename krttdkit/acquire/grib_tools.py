@@ -53,17 +53,17 @@ def grib_parse_pixels(pixels:list, grib1_files:list, chunk_size:int=1,
         results = list(pool.imap(_parse_pixels, args))
     return results
 
-def wgrib_tuples(grb1:Path):
+def wgrib_tuples(grb1:Path, wgrib_bin="wgrib"):
     """
     Calls wgrib on the provided file as a subprocess and returns the result
     as a list of tuples corresponding to each record, the tuples having string
     elements corresponding to the available fields in the grib1 file.
     """
-    wgrib_command = f"wgrib {grb1.as_posix()}"
+    wgrib_command = f"{wgrib_bin} {grb1.as_posix()}"
     out = subprocess.run(shlex.split(wgrib_command), capture_output=True)
     return [tuple(o.split(":")) for o in out.stdout.decode().split("\n")[:-1]]
 
-def wgrib(grb1:Path):
+def wgrib(grb1:Path, wgrib_bin="wgrib"):
     """
     Parses wgrib fields for a grib1 file into a dict of descriptive values.
     See: https://ftp.cpc.ncep.noaa.gov/wd51we/wgrib/readme
@@ -82,9 +82,9 @@ def wgrib(grb1:Path):
              "tf_pds":int(wg[9].split("=")[-1]),
              "fcst_pds":int(wg[10].split("=")[-1]), # Forecast id
              "navg":int(wg[13].split("=")[-1]), # Number of grid points in avg
-             } for wg in wgrib_tuples(grb1)]
+             } for wg in wgrib_tuples(grb1, wgrib_bin="wgrib")]
 
-def get_grib1_data(grb1_path:Path):
+def get_grib1_data(grb1_path:Path, wgrib_bin="wgrib"):
     """
     Parses grib1 file into a series of scalar arrays of the variables,
     geographic coordinate reference grids, and information about the dataset.
@@ -105,7 +105,7 @@ def get_grib1_data(grb1_path:Path):
     # Only the first entry in data is valid for FORA0125 files, the other
     # two being the (uniform) lat/lon grid. Not sure how general this is.
     data = [ d.data()[0] for d in gf ]
-    return (data, wgrib(f), geo)
+    return (data, wgrib(f, wgrib_bin="wgrib"), geo)
 
 """ Below was previously extract_nldas_subgrid.py """
 
