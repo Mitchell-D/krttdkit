@@ -1,6 +1,9 @@
 from typing import MutableSequence
 import numpy as np
-from typing import Self
+
+## Note typing_extensions back-ports pre-3.11 Self
+#from typing import Self
+from typing_extensions import Self
 
 # :TODO: intersect an integer grid
 

@@ -23,7 +23,7 @@ from matplotlib.transforms import Affine2D
 from matplotlib.patches import Patch
 
 plt.rcParams.update({
-    "text.usetex": True,
+    "text.usetex": False,
     "font.family": "sans-serif",
     "font.sans-serif": "Helvetica",
     })
