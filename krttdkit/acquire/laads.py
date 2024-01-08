@@ -241,6 +241,8 @@ def download(target_url:str, dest_dir:Path, raw_token:str=None,
         print(f"\033[33;7mDownloading\033[0m \033[34;1;4m{target_url}\033[0m")
     stdout, stderr = Popen(shlex.split(command),
                            stdout=PIPE, stderr=PIPE).communicate()
+    if stderr:
+        print(stderr)
     #if debug:
     #    print(stderr)
     return dest_path
