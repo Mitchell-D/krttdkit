@@ -59,6 +59,7 @@ plot_spec_default = {
     "yrange":None,
     "xlabel":"",
     "ylabel":"",
+    "xscale":"linear",
     "yrange":None,
     "cb_orient":"vertical",
     "cb_label":"",
@@ -268,6 +269,7 @@ def plot_lines(domain:list, ylines:list, image_path:Path=None,
             for plot_spec options, but the defaults are safe.
     :@param show: if True, shows the image in the matplotlib Agg client.
     """
+    plt.clf()
     # Merge provided plot_spec with un-provided default values
     old_ps = plot_spec_default
     old_ps.update(plot_spec)
@@ -295,6 +297,7 @@ def plot_lines(domain:list, ylines:list, image_path:Path=None,
     ax.set_title(plot_spec.get("title"))
     ax.set_ylim(plot_spec.get("yrange"))
     ax.set_xlim(plot_spec.get("xrange"))
+    ax.set_xscale(plot_spec.get("xscale"))
 
     if plot_spec.get("xtick_rotation"):
         plt.tick_params(axis="x", **{"labelrotation":plot_spec.get(
@@ -311,8 +314,9 @@ def plot_lines(domain:list, ylines:list, image_path:Path=None,
     if show:
         plt.show()
     if not image_path is None:
-        print(f"Saving figure to {image_path}")
+        #print(f"Saving figure to {image_path}")
         fig.savefig(image_path, bbox_inches="tight", dpi=plot_spec.get("dpi"))
+    return
 
 def basic_bars(labels, values, xcoords:list=None, err=None, plot_spec:dict={}):
     """
