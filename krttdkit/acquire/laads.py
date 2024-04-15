@@ -234,14 +234,15 @@ def download(target_url:str, dest_dir:Path, raw_token:str=None,
             print(f"WARNING: file exists: {dest_path.as_posix()}")
             return dest_path
         dest_path.unlink()
-    command = f"wget -e robots=off -np - -nH --cut-dirs=4 {target_url}" + \
+    command = f"wget -nv -e robots=off -np - -nH " + \
+            f"--cut-dirs=4 {target_url}" + \
             f' --header "Authorization: Bearer {token}"' + \
             f" -P {dest_dir.as_posix()}"
     if debug:
         print(f"\033[33;7mDownloading\033[0m \033[34;1;4m{target_url}\033[0m")
     stdout, stderr = Popen(shlex.split(command),
                            stdout=PIPE, stderr=PIPE).communicate()
-    if stderr:
+    if stderr and debug:
         print(stderr)
     #if debug:
     #    print(stderr)
