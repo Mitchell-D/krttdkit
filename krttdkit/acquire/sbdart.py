@@ -113,7 +113,7 @@ def get_records(sb_out:list, record_width:int=None):
 
 def _parse_iout1(sb_out:bytes):
     """
-    Parses DISORT output for the IOUT=5
+    Parses DISORT output for the IOUT=1
 
     This option provides upward, downward, and direct flux totals at TOA and
     BOA for each wavelength independently.
