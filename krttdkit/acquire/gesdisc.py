@@ -92,7 +92,8 @@ def gesdisc_auth(username,password):
     urllib.request.install_opener(opener)
     return opener
 
-def gesdisc_curl(urls:list, dl_dir:Path, skip_if_exists:bool=True, debug=False):
+def gesdisc_curl(urls:list, dl_dir:Path, cookie_file="~/.urs_cookies",
+        skip_if_exists:bool=True, use_wget=False, debug=False):
     """
     GES DISC authentication is messy with OAuth in Python. Just curl it
     using the invasive GES DISC cookie file requirements :(
@@ -102,17 +103,28 @@ def gesdisc_curl(urls:list, dl_dir:Path, skip_if_exists:bool=True, debug=False):
     :@param dl_dir: local directory to dump downloaded files
     :@param skip_if_exists: Don't download existing files.
     """
-    curl_command = "curl -n ~/.urs_cookies -b ~/.urs_cookies -LJO --url" + \
+    curl_command = "curl -n {cookie_file} -b {cookie_file} -LJO --url" + \
             " {url} -o {dl_path}"
+    wget_command = "wget -nv --load-cookies {cookie_file} " + \
+            "--save-cookies {cookie_file} -O {dl_path} -L {url}"
+    paths = []
     for u in urls:
         dl_path = dl_dir.joinpath(Path(u).name)
+        paths.append(dl_path)
         if dl_path.exists() and skip_if_exists:
-            print(f"Skipping {dl_path.name}; exists already")
+            if debug:
+                print(f"Skipping {dl_path.name}; exists already")
             continue
-        cmd = shlex.split(curl_command.format(url=u, dl_path=dl_path))
+        if use_wget:
+            cmd = shlex.split(wget_command.format(
+                url=u, dl_path=dl_path, cookie_file=cookie_file))
+        else:
+            cmd = shlex.split(curl_command.format(
+                url=u, dl_path=dl_path, cookie_file=cookie_file))
         if debug:
             print("\n"+u)
         subprocess.call(cmd)
+    return paths
 
 def gesdisc_download(urls:list, dl_dir:Path, auth=None, letfail:bool=True,
                   skip_if_exists:bool=True, debug=False):

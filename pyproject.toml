@@ -9,7 +9,7 @@ version = "0.0.1"
 description = "gridded data tools"
 dependencies = [
   "numpy>=1.23.5",
-  #"cartopy",
+  "cartopy",
   "imageio>=2.26.0",
   "matplotlib>=3.7.1",
   #"metpy",
