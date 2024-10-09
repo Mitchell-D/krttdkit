@@ -283,11 +283,23 @@ def animate(frames, fps=8, debug=False):
             break
     cv.destroyAllWindows()
 
-def quick_render(X:np.ndarray, colorize=False):
+def quick_render(X:np.ndarray, vmin=None, vmax=None, colorize=False):
     """
     Method for rapidly rendering a 2d or 3d array as a sanity check.
+
+    :@param vmin: minimum bound where smaller values are truncated.
+    :@param vmax: maximum bound where larger values are truncated.
     """
-    X = enhance.norm_to_uint(X, 256, np.uint8)
+    #X = enhance.norm_to_uint(X, 256, np.uint8)
+    #X = ((np.clip(X, vmin, vmax)-vmin)/(vmax-vmin)*256).astype(np.uint8)
+    if not vmin is None:
+        X[X<vmin] = vmin
+    if not vmax is None:
+        X[X<vmax] = vmax
+
+    X = (X-np.amin(X))/np.ptp(X)
+    X = (X*255).astype(np.uint8)
+
     if len(X.shape) == 2:
         if not colorize:
             X = np.dstack((X, X, X))

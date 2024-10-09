@@ -52,7 +52,9 @@ def dispatch_sbdart(params:dict, tmp_dir:Path, sbdart_bin:Path=Path("sbdart")):
     conforming to the SBDART iout parameter's standards
     """
     dkeys, dvals, ddescs = zip(*default_params)
-    assert all(k in dkeys for k in params.keys())
+    for k in params.keys():
+        if k not in dkeys:
+            raise ValueError(f"Param key {k} not recognized in {dkeys}")
     if tmp_dir.exists():
         raise ValueError(
                 f"Cannot use temporary directory; {tmp_dir} exists!")
@@ -67,6 +69,7 @@ def dispatch_sbdart(params:dict, tmp_dir:Path, sbdart_bin:Path=Path("sbdart")):
                            stdout=PIPE,stderr=PIPE).communicate()
     shutil.rmtree(tmp_dir.as_posix())
     if stderr:
+        print(stdout)
         raise ValueError(stderr)
     return stdout
 

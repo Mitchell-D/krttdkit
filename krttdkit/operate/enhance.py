@@ -280,11 +280,15 @@ def array_stat(X:np.ndarray):
     """
     return {
             "shape":X.shape,
+            "size":X.size,
             "stddev":np.std(X),
             "mean":np.average(X),
             "min":np.amin(X),
             "max":np.amax(X),
             "range":np.ptp(X),
+            "nanmin":np.nanmin(X),
+            "nanmax":np.nanmax(X),
+            "nancount":np.count_nonzero(np.isnan(X)),
             }
 
 def get_nd_hist(arrays:list, bin_counts=256, ranges:list=None):
@@ -421,9 +425,12 @@ def get_pixel_counts(X:np.ndarray, nbins, debug=False):
         print(f"Binning {X.size} unmasked data points")
         print(f"Original array range: ({Xmin}, {Xmax})")
     counts = np.zeros(nbins)
-    Xnorm = norm_to_uint(Xdata, nbins)
+    Xnorm = norm_to_uint(Xdata, nbins, cast_type=np.ulonglong)
     for px in Xnorm:
-        counts[px] += 1
+        try:
+            counts[px] += 1
+        except Exception as e:
+            continue
     return counts, bin_size, Xmin
 
 def get_cumulative_hist(X:np.ndarray, nbins:int, debug=False):

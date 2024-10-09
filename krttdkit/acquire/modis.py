@@ -112,7 +112,7 @@ def query_modis_l1b(product_key:str, start_time:dt, end_time:dt,
             download link of the geolocation file for the granule.
     """
     valid = {"MOD021KM", "MYD021KM", "MOD02QKM", "MYD02QKM",
-             "MOD02HKM", "MYD02HKM"}
+             "MOD02HKM", "MYD02HKM", "MOD03", "MYD03"}
     if product_key not in valid:
         raise ValueError(f"Product key must be one of: {valid}")
 
