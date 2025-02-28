@@ -122,8 +122,12 @@ def gesdisc_curl(urls:list, dl_dir:Path, cookie_file="~/.urs_cookies",
             cmd = shlex.split(curl_command.format(
                 url=u, dl_path=dl_path, cookie_file=cookie_file))
         if debug:
-            print("\n"+u)
-        subprocess.call(cmd)
+            print(" ".join(cmd))
+            out = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            print(f"{out.stdout = }")
+            print(f"{out.stderr = }")
+        else:
+            subprocess.call(cmd)
     return paths
 
 def gesdisc_download(urls:list, dl_dir:Path, auth=None, letfail:bool=True,
